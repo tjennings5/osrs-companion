@@ -53,7 +53,7 @@ Write-Host "Assembling dist\..."
 New-Item -ItemType Directory -Force -Path "$distDir\settings" | Out-Null
 
 # Fat JAR
-Copy-Item $jar.FullName -Destination "$distDir\osrs-mcp-bridge-all.jar" -Force
+Copy-Item $jar.FullName -Destination "$distDir\extra-plugins.jar" -Force
 
 # Version tag (launcher compares this to GitHub to decide whether to update)
 $version | Set-Content "$distDir\version.txt" -Encoding ASCII
@@ -138,7 +138,7 @@ if ($Repo -like "FILL_IN*") {
 
 Write-Host ""
 Write-Host "Publishing GitHub release $version to $Repo..."
-gh release create $version "$distDir\osrs-mcp-bridge-all.jar" `
+gh release create $version "$distDir\extra-plugins.jar" `
     --repo $Repo `
     --title "OSRS Companion $version" `
     --notes "Plugin update $version" `

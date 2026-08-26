@@ -7,7 +7,7 @@
 
 $githubRepo  = "__GITHUB_REPO__"   # stamped by build-package.ps1
 $scriptDir   = $PSScriptRoot
-$jarPath     = "$scriptDir\osrs-mcp-bridge-all.jar"
+$jarPath     = "$scriptDir\extra-plugins.jar"
 $versionFile = "$scriptDir\version.txt"
 $configPath  = "$env:USERPROFILE\.runelite\profiles2\default-0.properties"
 $uiScale     = "1.0"   # ← change to 1.5 or 2.0 for HiDPI / 4K displays
@@ -51,7 +51,7 @@ if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -ne "__GITHUB_REPO__") {
         $current = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "" }
 
         if ($latest -and $latest -ne $current) {
-            $asset = $release.assets | Where-Object { $_.name -eq "osrs-mcp-bridge-all.jar" } | Select-Object -First 1
+            $asset = $release.assets | Where-Object { $_.name -eq "extra-plugins.jar" } | Select-Object -First 1
             if ($asset) {
                 Write-Host "  Downloading update $latest..."
                 $tmp = "$jarPath.tmp"
