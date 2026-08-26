@@ -1,0 +1,12 @@
+# Normalize line endings: store as LF in the repo, check out as CRLF on Windows.
+* text=auto
+
+# Always LF for shell scripts and Gradle wrapper — they must be LF to run in WSL/Linux.
+plugin/gradlew text eol=lf
+plugin/gradlew.bat text eol=crlf
+
+# Binary files — never touch line endings.
+*.jar binary
+*.wav binary
+*.png binary
+*.class binary

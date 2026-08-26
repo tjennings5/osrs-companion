@@ -1,0 +1,15 @@
+# Gradle build outputs
+plugin/build/
+plugin/.gradle/
+
+# Compiled class files
+*.class
+
+# JVM crash dumps
+hs_err_pid*.log
+
+# Cached classpath from the dev launcher
+plugin/build/launch-classpath.txt
+
+# Assembled distribution (built by build-package.ps1, not committed)
+dist/
