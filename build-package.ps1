@@ -74,24 +74,24 @@ $launcherContent = [System.IO.File]::ReadAllText($launcherSrc, $utf8NoBom)
 $launcherContent = $launcherContent -replace '__GITHUB_REPO__', $Repo
 [System.IO.File]::WriteAllText("$distDir\launch.ps1", $launcherContent, $utf8NoBom)
 
-# launch.bat
+# Single entry point - RuneLite (Extra Plugins).bat calls launch.ps1
 @'
 @echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch.ps1"
-pause
-'@ | Set-Content "$distDir\launch.bat" -Encoding ASCII
+'@ | Set-Content "$distDir\RuneLite (Extra Plugins).bat" -Encoding ASCII
 
 # README.txt inside the dist folder
 $readme = @"
 OSRS Companion $version
 =======================
 
-SETUP (one time):
+GETTING STARTED:
 1. Install RuneLite from https://runelite.net and launch it at least once.
-2. Put this folder anywhere you like.
-3. Double-click launch.bat.
-4. First run: choose whether to import the bundled settings
-   (hotkeys, bank tags, UI layout, etc.). Say No to keep your own RuneLite settings.
+2. Put this folder anywhere you like - it stays here permanently.
+3. Double-click "RuneLite (Extra Plugins).bat".
+   First run shows a setup screen to create a Desktop shortcut and import settings.
+   After that it goes straight to the launcher every time.
+4. To pin to taskbar: right-click the Desktop shortcut, select Pin to taskbar.
 
 PLUGINS INCLUDED:
   Farm Run Guide, Drop Highlighter, Cerberus Helper,
@@ -100,14 +100,13 @@ PLUGINS INCLUDED:
 AUTO-UPDATES:
 The launcher checks for plugin updates every time you start it.
 If a new version is available it downloads silently before launching.
-You never need a new zip - just keep using the same launch.bat.
+You never need a new zip - just keep using the same shortcut.
 
 If login fails after a game update: launch RuneLite normally once
-(it will update itself), then use launch.bat as usual.
+(it will update itself), then use your shortcut as usual.
 
 DISPLAY SCALE:
-Default scale is 2.0 (HiDPI). If everything looks too large, edit
-launch.ps1 and change uiScale=2.0 to 1.0 or 1.5.
+Default scale is 2.0 (HiDPI). Adjust with the slider in the launcher.
 "@
 [System.IO.File]::WriteAllText("$distDir\README.txt", $readme, $utf8NoBom)
 
@@ -124,14 +123,24 @@ if (-not $Publish) {
 
 Write-Host ""
 Write-Host "Publishing GitHub release $version to $Repo..."
-gh release create $version "$distDir\extra-plugins.jar" `
+
+# Zip the full dist\ - this is the one file users download
+$zipPath = "$PSScriptRoot\osrs-companion-setup.zip"
+if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+Compress-Archive -Path "$distDir\*" -DestinationPath $zipPath
+Write-Host "  Zipped dist\ -> osrs-companion-setup.zip"
+
+gh release create $version `
+    "$zipPath#osrs-companion-setup.zip" `
     --repo $Repo `
     --title "OSRS Companion $version" `
-    --notes "Plugin update $version" `
+    --notes "Download **osrs-companion-setup.zip**, extract it anywhere, and double-click **launch.bat**.
+
+Already set up? Your launcher will auto-download this update on next launch. Nothing to do." `
     --latest
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "Published. All other computers will auto-download this update on next launch."
+    Write-Host "Published. Users download osrs-companion-setup.zip; existing launchers auto-update from the zip."
 } else {
-    Write-Warning "GitHub release failed. You can still distribute dist\ manually as a zip."
+    Write-Warning "GitHub release failed. You can still distribute osrs-companion-setup.zip manually."
 }
