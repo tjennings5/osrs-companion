@@ -174,4 +174,24 @@ public interface FarmRunConfig extends Config
 	{
 		return false;
 	}
+
+	@ConfigItem(
+		keyName = "herbSetupName",
+		name = "Herb run setup name",
+		description = "Name of your Inventory Setups setup for herb runs. Leave blank to skip bank filtering."
+	)
+	default String herbSetupName()
+	{
+		return "Herb Run";
+	}
+
+	@ConfigItem(
+		keyName = "treeSetupName",
+		name = "Tree run setup name",
+		description = "Name of your Inventory Setups setup for tree runs. Leave blank to skip bank filtering."
+	)
+	default String treeSetupName()
+	{
+		return "Tree Run";
+	}
 }

@@ -13,3 +13,7 @@ plugin/build/launch-classpath.txt
 
 # Assembled distribution (built by build-package.ps1, not committed)
 dist/
+
+# Per-machine flag files written by the launcher
+.shortcut-created
+launcher-settings.txt

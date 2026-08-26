@@ -106,8 +106,8 @@ If login fails after a game update: launch RuneLite normally once
 (it will update itself), then use launch.bat as usual.
 
 DISPLAY SCALE:
-Edit launch.ps1 and change uiScale=1.0 to match your monitor
-(1.5 for 150% Windows scaling, 2.0 for 4K/200% scaling).
+Default scale is 2.0 (HiDPI). If everything looks too large, edit
+launch.ps1 and change uiScale=2.0 to 1.0 or 1.5.
 "@
 [System.IO.File]::WriteAllText("$distDir\README.txt", $readme, $utf8NoBom)
 
