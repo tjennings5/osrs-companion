@@ -8,16 +8,11 @@
 #     Run once: gh auth login
 #
 # Usage:
-#   .\build-package.ps1                         <- build dist\ only
-#   .\build-package.ps1 -Publish               <- build + publish GitHub release
-#   .\build-package.ps1 -Publish -Repo owner/repo  <- override GitHub repo
-#
-# The recipient NEVER needs WSL, Gradle, or this folder.
-# They just need the dist\ folder (or a zip of it) and RuneLite installed.
+#   .\build-package.ps1                        <- build dist\ only
+#   .\build-package.ps1 -Publish              <- build + publish GitHub release
 
 param(
     [switch]$Publish,
-    # ↓ Set this to your GitHub username/repo once, or pass -Repo each time.
     [string]$Repo = "tjennings5/osrs-companion"
 )
 
@@ -25,15 +20,15 @@ $ErrorActionPreference = "Stop"
 
 # Derive paths relative to this script so it works on any machine, not just Tyler's.
 $winPluginDir  = "$PSScriptRoot\plugin"
-$wslProjectDir = ($winPluginDir -replace '^([A-Za-z]):\\', { '/mnt/' + $_.Groups[1].Value.ToLower() + '/' }) -replace '\\', '/'
+$wslProjectDir = ($winPluginDir -replace '^([A-Za-z]):\\', '/mnt/$1/') -replace '\\', '/'
+$wslProjectDir = $wslProjectDir -replace '/mnt/([A-Z])/', { '/mnt/' + $_.Groups[1].Value.ToLower() + '/' }
 $distDir       = "$PSScriptRoot\dist"
 $configPath    = "$env:USERPROFILE\.runelite\profiles2\default-0.properties"
 $profileDir    = Split-Path $configPath -Parent
 $version       = "v" + (Get-Date -Format 'yyyyMMdd-HHmm')
 
-# ── Build fat JAR via existing shadowJar task ────────────────────────────────
+# --- Build fat JAR via existing shadowJar task ---
 Write-Host "Building fat JAR (version $version)..."
-Write-Host "  (using your existing runelite-plugin\build.gradle - nothing changed there)"
 $output = wsl.exe -d Ubuntu -e bash -lc "cd '$wslProjectDir' && ./gradlew -q shadowJar" 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Gradle shadowJar failed:`n$($output -join "`n")"
@@ -43,22 +38,20 @@ if ($LASTEXITCODE -ne 0) {
 $jar = Get-ChildItem "$winPluginDir\build\libs\*-all.jar" |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $jar) {
-    Write-Error "No *-all.jar found in plugin\build\libs\  — Gradle shadowJar may have failed. Check the output above."
+    Write-Error "No *-all.jar found in plugin\build\libs\ - Gradle shadowJar may have failed."
     exit 1
 }
-Write-Host "  Built: $($jar.Name) ($([math]::Round($jar.Length / 1MB, 1)) MB)"
+$sizeMB = [math]::Round($jar.Length / 1048576, 1)
+Write-Host "  Built: $($jar.Name) ($sizeMB MB)"
 
-# ── Assemble dist\ ───────────────────────────────────────────────────────────
+# --- Assemble dist\ ---
 Write-Host "Assembling dist\..."
 New-Item -ItemType Directory -Force -Path "$distDir\settings" | Out-Null
 
-# Fat JAR
 Copy-Item $jar.FullName -Destination "$distDir\extra-plugins.jar" -Force
 
-# Version tag (launcher compares this to GitHub to decide whether to update)
 $version | Set-Content "$distDir\version.txt" -Encoding ASCII
 
-# Settings snapshot (recipient can choose to import on first run)
 if (Test-Path $configPath) {
     Copy-Item $configPath -Destination "$distDir\settings\default-0.properties" -Force
     Write-Host "  Bundled RuneLite settings snapshot."
@@ -70,25 +63,26 @@ foreach ($f in @('profiles.json')) {
     if (Test-Path $src) { Copy-Item $src "$distDir\settings\" -Force }
 }
 
-# Portable launcher (copy from this folder, stamp in the GitHub repo)
+# Portable launcher - stamp in the GitHub repo name
 $launcherSrc = "$PSScriptRoot\companion-launch.ps1"
 if (-not (Test-Path $launcherSrc)) {
-    Write-Error "companion-launch.ps1 not found next to build-package.ps1 — they must be in the same folder."
+    Write-Error "companion-launch.ps1 not found next to build-package.ps1"
     exit 1
 }
-$launcherContent = [System.IO.File]::ReadAllText($launcherSrc, [System.Text.UTF8Encoding]::new($false))
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+$launcherContent = [System.IO.File]::ReadAllText($launcherSrc, $utf8NoBom)
 $launcherContent = $launcherContent -replace '__GITHUB_REPO__', $Repo
-[System.IO.File]::WriteAllText("$distDir\launch.ps1", $launcherContent, [System.Text.UTF8Encoding]::new($false))
+[System.IO.File]::WriteAllText("$distDir\launch.ps1", $launcherContent, $utf8NoBom)
 
-# launch.bat (double-click entry point)
+# launch.bat
 @'
 @echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch.ps1"
 pause
 '@ | Set-Content "$distDir\launch.bat" -Encoding ASCII
 
-# README
-@"
+# README.txt inside the dist folder
+$readme = @"
 OSRS Companion $version
 =======================
 
@@ -106,7 +100,7 @@ PLUGINS INCLUDED:
 AUTO-UPDATES:
 The launcher checks for plugin updates every time you start it.
 If a new version is available it downloads silently before launching.
-You never need a new zip — just keep using the same launch.bat.
+You never need a new zip - just keep using the same launch.bat.
 
 If login fails after a game update: launch RuneLite normally once
 (it will update itself), then use launch.bat as usual.
@@ -114,26 +108,18 @@ If login fails after a game update: launch RuneLite normally once
 DISPLAY SCALE:
 Edit launch.ps1 and change uiScale=1.0 to match your monitor
 (1.5 for 150% Windows scaling, 2.0 for 4K/200% scaling).
-"@ | Set-Content "$distDir\README.txt" -Encoding UTF8
+"@
+[System.IO.File]::WriteAllText("$distDir\README.txt", $readme, $utf8NoBom)
 
 Write-Host ""
 Write-Host "dist\ assembled at: $distDir"
-Write-Host "Your existing runelite-plugin\ setup is untouched."
 
-# ── Publish GitHub release (optional) ───────────────────────────────────────
+# --- Publish GitHub release ---
 if (-not $Publish) {
     Write-Host ""
     Write-Host "To publish so other computers auto-update, run:"
-    Write-Host "  .\build-package.ps1 -Publish -Repo YOUR_GITHUB_USERNAME/osrs-companion"
-    Write-Host ""
-    Write-Host "First time? Create the repo at https://github.com/new (can be private),"
-    Write-Host "then run: gh auth login"
+    Write-Host "  .\build-package.ps1 -Publish"
     return
-}
-
-if ($Repo -like "FILL_IN*") {
-    Write-Error "Set your GitHub repo with -Repo owner/repo before publishing."
-    exit 1
 }
 
 Write-Host ""
