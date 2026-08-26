@@ -183,7 +183,7 @@ if (-not (Test-ConfigFree $configPath)) {
 # AUTO-UPDATE
 # -----------------------------------------------------------------------
 $pendingChangelog = $null
-if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -ne "__GITHUB_REPO__") {
+if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -notlike "*GITHUB_REPO*") {
     try {
         Write-Host "Checking for plugin updates..."
         $release = Invoke-RestMethod "https://api.github.com/repos/$githubRepo/releases/latest" -TimeoutSec 8 -ErrorAction Stop
