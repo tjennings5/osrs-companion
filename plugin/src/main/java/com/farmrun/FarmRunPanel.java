@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 import java.awt.BorderLayout;
 import java.awt.Color;

@@ -1,4 +1,4 @@
-package com.osrsmcp.araxxor;
+package com.araxxor;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

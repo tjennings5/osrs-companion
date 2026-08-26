@@ -1,4 +1,4 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
 /**
  * Standard OSRS max hit arithmetic, used to estimate how much one more attack

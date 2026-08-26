@@ -1,9 +1,9 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
 import com.google.inject.Provides;
-import com.osrsmcp.combat.AttackClock;
-import com.osrsmcp.combat.HealthBar;
-import com.osrsmcp.combat.XpDamage;
+import com.combat.AttackClock;
+import com.combat.HealthBar;
+import com.combat.XpDamage;
 import java.util.EnumMap;
 import java.util.Map;
 import javax.inject.Inject;

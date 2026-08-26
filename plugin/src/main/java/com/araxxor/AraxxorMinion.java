@@ -1,4 +1,4 @@
-package com.osrsmcp.araxxor;
+package com.araxxor;
 
 import lombok.Getter;
 import net.runelite.api.gameval.NpcID;

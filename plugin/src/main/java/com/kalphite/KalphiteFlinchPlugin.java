@@ -1,4 +1,4 @@
-package com.osrsmcp.kalphite;
+package com.kalphite;
 
 import com.google.inject.Provides;
 import java.util.Arrays;

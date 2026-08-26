@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 import lombok.Getter;
 import lombok.Setter;

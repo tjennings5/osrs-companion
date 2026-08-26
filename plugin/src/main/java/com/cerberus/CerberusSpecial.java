@@ -1,4 +1,4 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

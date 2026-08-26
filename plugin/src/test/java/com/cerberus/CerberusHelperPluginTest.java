@@ -1,4 +1,4 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

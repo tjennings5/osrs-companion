@@ -1,4 +1,4 @@
-package com.osrsmcp.combat;
+package com.combat;
 
 import lombok.Getter;
 

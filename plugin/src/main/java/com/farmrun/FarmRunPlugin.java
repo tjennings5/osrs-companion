@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 import com.google.gson.Gson;
 import com.google.inject.Provides;

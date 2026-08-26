@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 public class BankItem
 {

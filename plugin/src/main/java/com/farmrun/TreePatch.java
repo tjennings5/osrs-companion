@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 import java.util.Arrays;
 import java.util.List;

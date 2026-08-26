@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 /**
  * Decodes herb patch farming varbit values into a simple {@link PatchState}.
