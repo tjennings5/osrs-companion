@@ -5,7 +5,6 @@ import com.osrsmcp.araxxor.AraxxorHelperPlugin;
 import com.osrsmcp.cerberus.CerberusHelperPlugin;
 import com.osrsmcp.farmrun.FarmRunPlugin;
 import com.osrsmcp.kalphite.KalphiteFlinchPlugin;
-import com.osrsmcp.test.AutoUpdateTestPlugin;
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
@@ -19,8 +18,7 @@ public class OsrsMcpBridgePluginTest
 			AraxxorHelperPlugin.class,
 			DropHighlighterPlugin.class,
 			KalphiteFlinchPlugin.class,
-			FarmRunPlugin.class,
-			AutoUpdateTestPlugin.class);
+			FarmRunPlugin.class);
 		RuneLite.main(args);
 	}
 }
