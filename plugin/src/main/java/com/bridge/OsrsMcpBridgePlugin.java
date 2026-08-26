@@ -1,4 +1,4 @@
-package com.osrsmcp.bridge;
+package com.bridge;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;

@@ -1,4 +1,4 @@
-package com.osrsmcp.kalphite;
+package com.kalphite;
 
 import java.awt.Color;
 import java.awt.Dimension;

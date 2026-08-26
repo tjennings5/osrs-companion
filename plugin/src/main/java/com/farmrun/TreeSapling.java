@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 import net.runelite.api.gameval.ItemID;
 

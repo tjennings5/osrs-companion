@@ -1,4 +1,4 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
 import java.awt.Color;
 import java.awt.Dimension;

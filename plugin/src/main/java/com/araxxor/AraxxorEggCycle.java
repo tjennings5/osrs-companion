@@ -1,4 +1,4 @@
-package com.osrsmcp.araxxor;
+package com.araxxor;
 
 import java.util.ArrayList;
 import java.util.Comparator;

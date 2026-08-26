@@ -1,6 +1,6 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
-import com.osrsmcp.combat.AttackClock;
+import com.combat.AttackClock;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;

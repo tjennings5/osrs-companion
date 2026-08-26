@@ -1,4 +1,4 @@
-package com.osrsmcp.araxxor;
+package com.araxxor;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;

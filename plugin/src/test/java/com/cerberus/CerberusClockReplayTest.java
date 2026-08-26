@@ -1,6 +1,6 @@
-package com.osrsmcp.cerberus;
+package com.cerberus;
 
-import com.osrsmcp.combat.AttackClock;
+import com.combat.AttackClock;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

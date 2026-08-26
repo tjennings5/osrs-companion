@@ -1,9 +1,9 @@
-package com.osrsmcp.araxxor;
+package com.araxxor;
 
 import com.google.inject.Provides;
-import com.osrsmcp.combat.AttackClock;
-import com.osrsmcp.combat.HealthBar;
-import com.osrsmcp.combat.XpDamage;
+import com.combat.AttackClock;
+import com.combat.HealthBar;
+import com.combat.XpDamage;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;

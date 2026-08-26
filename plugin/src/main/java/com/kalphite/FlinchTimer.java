@@ -1,11 +1,11 @@
-package com.osrsmcp.kalphite;
+package com.kalphite;
 
 /**
  * A countdown measured in game ticks, from the moment you attack to the moment you may attack
  * again without the target getting a hit back.
  *
  * <p>Client-free on purpose so the counting rules can be tested without a running client, the
- * same way {@code com.osrsmcp.combat.AttackClock} is.
+ * same way {@code com.combat.AttackClock} is.
  *
  * <p>The important rule is that a running countdown cannot be restarted. Attacking is detected
  * from two independent signals — your animation changing and your hitsplat landing — and for a

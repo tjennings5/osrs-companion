@@ -1,4 +1,4 @@
-package com.osrsmcp.combat;
+package com.combat;
 
 /**
  * Converts an NPC's health bar ratio into the range of hitpoints it can mean.

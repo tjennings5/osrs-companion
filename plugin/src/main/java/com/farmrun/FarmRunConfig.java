@@ -1,4 +1,4 @@
-package com.osrsmcp.farmrun;
+package com.farmrun;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
