@@ -1,4 +1,4 @@
-﻿package com.test;
+package com.test;
 
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
