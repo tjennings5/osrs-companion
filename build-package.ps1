@@ -29,9 +29,9 @@ $version       = "v" + (Get-Date -Format 'yyyyMMdd-HHmm')
 
 # --- Build fat JAR via existing shadowJar task ---
 Write-Host "Building fat JAR (version $version)..."
-$output = wsl.exe -d Ubuntu -e bash -lc "cd '$wslProjectDir' && ./gradlew -q shadowJar" 2>&1
+wsl.exe -d Ubuntu -e bash -lc "cd '$wslProjectDir' && ./gradlew -q shadowJar"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Gradle shadowJar failed:`n$($output -join "`n")"
+    Write-Error "Gradle shadowJar failed - see output above."
     exit 1
 }
 
