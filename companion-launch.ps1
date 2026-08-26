@@ -324,7 +324,7 @@ if (-not $skipLauncherUI) {
     $form.Controls.Add($chkSkip)
 
     $btnLaunch = New-Object System.Windows.Forms.Button
-    $btnLaunch.Text = "Launch"; $btnLaunch.Font = $fontBtn
+    $btnLaunch.Text = "Launch RuneLite"; $btnLaunch.Font = $fontBtn
     $btnLaunch.ForeColor = $colBg; $btnLaunch.BackColor = $colGold
     $btnLaunch.FlatStyle = "Flat"; $btnLaunch.FlatAppearance.BorderSize = 0
     $btnLaunch.Location = New-Object System.Drawing.Point(20, 168); $btnLaunch.Size = New-Object System.Drawing.Size(280, 38)
