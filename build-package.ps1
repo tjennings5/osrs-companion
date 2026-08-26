@@ -20,8 +20,8 @@ $ErrorActionPreference = "Stop"
 
 # Derive paths relative to this script so it works on any machine, not just Tyler's.
 $winPluginDir  = "$PSScriptRoot\plugin"
-$wslProjectDir = ($winPluginDir -replace '^([A-Za-z]):\\', '/mnt/$1/') -replace '\\', '/'
-$wslProjectDir = $wslProjectDir -replace '/mnt/([A-Z])/', { '/mnt/' + $_.Groups[1].Value.ToLower() + '/' }
+$driveLetter   = $winPluginDir.Substring(0, 1).ToLower()
+$wslProjectDir = '/mnt/' + $driveLetter + '/' + $winPluginDir.Substring(3).Replace('\', '/')
 $distDir       = "$PSScriptRoot\dist"
 $configPath    = "$env:USERPROFILE\.runelite\profiles2\default-0.properties"
 $profileDir    = Split-Path $configPath -Parent
