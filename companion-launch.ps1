@@ -190,18 +190,12 @@ if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -notlike "*GITHUB_REPO*") 
         $latest  = $release.tag_name.Trim()
         $current = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "" }
         if ($latest -and $latest -ne $current) {
-            $asset = $release.assets | Where-Object { $_.name -eq "osrs-companion-setup.zip" } | Select-Object -First 1
+            $asset = $release.assets | Where-Object { $_.name -eq "extra-plugins.jar" } | Select-Object -First 1
             if ($asset) {
                 Write-Host "  Downloading update $latest..."
-                $tmpZip = "$scriptDir\update.zip.tmp"
-                $tmpDir = "$scriptDir\update-extract"
-                Invoke-WebRequest $asset.browser_download_url -OutFile $tmpZip -TimeoutSec 120 -ErrorAction Stop
-                if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
-                Expand-Archive $tmpZip -DestinationPath $tmpDir -Force
-                $newJar = Join-Path $tmpDir "extra-plugins.jar"
-                if (Test-Path $newJar) { Move-Item $newJar $jarPath -Force }
-                Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item $tmpZip  -Force -ErrorAction SilentlyContinue
+                $tmpJar = "$scriptDir\extra-plugins.jar.tmp"
+                Invoke-WebRequest $asset.browser_download_url -OutFile $tmpJar -TimeoutSec 120 -ErrorAction Stop
+                Move-Item $tmpJar $jarPath -Force
                 $latest | Set-Content $versionFile -Encoding ASCII
                 Write-Host "  Updated to $latest."
                 $notes = if ($release.body) { $release.body.Trim() } else { "No release notes provided." }
