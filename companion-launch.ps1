@@ -72,7 +72,7 @@ if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -notlike "*GITHUB_REPO*") 
             $asset = $release.assets | Where-Object { $_.name -eq "osrs-companion-setup.zip" } | Select-Object -First 1
             if ($asset) {
                 Write-Log "  Downloading update $latest..."
-                $tmpZip = "$scriptDir\update.zip.tmp"
+                $tmpZip = "$scriptDir\update-tmp.zip"
                 $tmpDir = "$scriptDir\update-extract"
                 Invoke-WebRequest $asset.browser_download_url -OutFile $tmpZip -TimeoutSec 120 -ErrorAction Stop
                 Write-Log "  Downloaded ($([math]::Round((Get-Item $tmpZip).Length / 1MB, 1)) MB). Extracting..."
