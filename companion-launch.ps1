@@ -83,7 +83,8 @@ if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -notlike "*GITHUB_REPO*") 
                 $ProgressPreference = $prev
                 $newJar = Join-Path $tmpDir "extra-plugins.jar"
                 if (Test-Path $newJar) {
-                    Move-Item $newJar $jarPath -Force
+                    Copy-Item $newJar $jarPath -Force -ErrorAction Stop
+                    Remove-Item $newJar -Force -ErrorAction SilentlyContinue
                     $latest | Set-Content $versionFile -Encoding ASCII
                     Write-Log "  Updated to $latest."
                 } else {
