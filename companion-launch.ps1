@@ -51,46 +51,57 @@ if (-not (Test-ConfigFree $configPath)) {
 # Downloads a new plugin JAR from GitHub if one has been published since the
 # last time this ran. Skips silently on any network error so offline play works.
 if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -notlike "*GITHUB_REPO*") {
+    $logFile = "$scriptDir\update.log"
+    function Write-Log {
+        param([string]$Msg)
+        $line = "$(Get-Date -Format 'HH:mm:ss') $Msg"
+        Write-Host $line
+        Add-Content $logFile $line -Encoding UTF8
+    }
     try {
-        Write-Host "Checking for plugin updates..."
+        Write-Log "Checking for plugin updates..."
         $apiUrl  = "https://api.github.com/repos/$githubRepo/releases/latest"
         $release = Invoke-RestMethod $apiUrl -TimeoutSec 8 -ErrorAction Stop
         $latest  = $release.tag_name.Trim()
         $current = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "" }
 
-        Write-Host "  Latest: $latest  Local: $(if ($current) { $current } else { '(none)' })"
+        Write-Log "  Latest: $latest  Local: $(if ($current) { $current } else { '(none)' })"
         if ($latest -and $latest -ne $current) {
             $assetNames = ($release.assets | ForEach-Object { $_.name }) -join ", "
-            Write-Host "  Release assets: $assetNames"
+            Write-Log "  Release assets: $assetNames"
             $asset = $release.assets | Where-Object { $_.name -eq "osrs-companion-setup.zip" } | Select-Object -First 1
             if ($asset) {
-                Write-Host "  Downloading update $latest..."
+                Write-Log "  Downloading update $latest..."
                 $tmpZip = "$scriptDir\update.zip.tmp"
                 $tmpDir = "$scriptDir\update-extract"
                 Invoke-WebRequest $asset.browser_download_url -OutFile $tmpZip -TimeoutSec 120 -ErrorAction Stop
-                Write-Host "  Downloaded. Extracting..."
+                Write-Log "  Downloaded ($([math]::Round((Get-Item $tmpZip).Length / 1MB, 1)) MB). Extracting..."
                 if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
+                $prev = $ProgressPreference
+                $ProgressPreference = 'SilentlyContinue'
                 Expand-Archive $tmpZip -DestinationPath $tmpDir -Force
+                $ProgressPreference = $prev
                 $newJar = Join-Path $tmpDir "extra-plugins.jar"
                 if (Test-Path $newJar) {
                     Move-Item $newJar $jarPath -Force
                     $latest | Set-Content $versionFile -Encoding ASCII
-                    Write-Host "  Updated to $latest."
+                    Write-Log "  Updated to $latest."
                 } else {
                     $extracted = (Get-ChildItem $tmpDir -Recurse | ForEach-Object { $_.Name }) -join ", "
-                    Write-Warning "  extra-plugins.jar not found in zip. Contents: $extracted"
+                    Write-Log "  WARNING: extra-plugins.jar not found in zip. Contents: $extracted"
                 }
                 Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
                 Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
             } else {
-                Write-Warning "  osrs-companion-setup.zip not found in release assets."
+                Write-Log "  WARNING: osrs-companion-setup.zip not found in release assets."
             }
         } else {
-            Write-Host "  Plugins are up to date ($current)."
+            Write-Log "  Plugins are up to date ($current)."
         }
     }
     catch {
-        Write-Warning "Update check skipped: $($_.Exception.Message)"
+        $msg = "Update check failed: $($_.Exception.Message)"
+        Write-Log "  ERROR: $msg"
     }
 }
 
