@@ -58,23 +58,32 @@ if ($githubRepo -notlike "*FILL_IN*" -and $githubRepo -notlike "*GITHUB_REPO*") 
         $latest  = $release.tag_name.Trim()
         $current = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "" }
 
+        Write-Host "  Latest: $latest  Local: $(if ($current) { $current } else { '(none)' })"
         if ($latest -and $latest -ne $current) {
+            $assetNames = ($release.assets | ForEach-Object { $_.name }) -join ", "
+            Write-Host "  Release assets: $assetNames"
             $asset = $release.assets | Where-Object { $_.name -eq "osrs-companion-setup.zip" } | Select-Object -First 1
             if ($asset) {
                 Write-Host "  Downloading update $latest..."
                 $tmpZip = "$scriptDir\update.zip.tmp"
                 $tmpDir = "$scriptDir\update-extract"
                 Invoke-WebRequest $asset.browser_download_url -OutFile $tmpZip -TimeoutSec 120 -ErrorAction Stop
+                Write-Host "  Downloaded. Extracting..."
                 if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
                 Expand-Archive $tmpZip -DestinationPath $tmpDir -Force
                 $newJar = Join-Path $tmpDir "extra-plugins.jar"
                 if (Test-Path $newJar) {
                     Move-Item $newJar $jarPath -Force
+                    $latest | Set-Content $versionFile -Encoding ASCII
+                    Write-Host "  Updated to $latest."
+                } else {
+                    $extracted = (Get-ChildItem $tmpDir -Recurse | ForEach-Object { $_.Name }) -join ", "
+                    Write-Warning "  extra-plugins.jar not found in zip. Contents: $extracted"
                 }
                 Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
                 Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
-                $latest | Set-Content $versionFile -Encoding ASCII
-                Write-Host "  Updated to $latest."
+            } else {
+                Write-Warning "  osrs-companion-setup.zip not found in release assets."
             }
         } else {
             Write-Host "  Plugins are up to date ($current)."
