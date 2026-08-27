@@ -114,7 +114,7 @@ $fontLabel  = New-Object System.Drawing.Font("Segoe UI", 8)
 $fontTitle  = New-Object System.Drawing.Font("Segoe UI Semibold", 11)
 $fontBtn    = New-Object System.Drawing.Font("Segoe UI Semibold", 10)
 
-$shortcutFlag   = "$scriptDir\.shortcut-created"
+$shortcutFlag   = "$scriptDir\.setup-done"
 $bundled        = "$scriptDir\settings\default-0.properties"
 $isFirstRun     = -not (Test-Path $shortcutFlag)
 $importSettings = $false
@@ -275,38 +275,33 @@ if (-not $skipScale) {
         }
     })
 
+    $chkSkip = New-Object System.Windows.Forms.CheckBox
+    $chkSkip.Text = "Don't ask again"
+    $chkSkip.Font = $fontLabel; $chkSkip.ForeColor = $colMuted; $chkSkip.BackColor = $colBg
+    $chkSkip.Location = New-Object System.Drawing.Point(20, 142); $chkSkip.AutoSize = $true
+    $form.Controls.Add($chkSkip)
+
     $btnLaunch = New-Object System.Windows.Forms.Button
     $btnLaunch.Text = "Launch"; $btnLaunch.Font = $fontBtn
     $btnLaunch.ForeColor = $colBg; $btnLaunch.BackColor = $colGold
     $btnLaunch.FlatStyle = "Flat"; $btnLaunch.FlatAppearance.BorderSize = 0
-    $btnLaunch.Location = New-Object System.Drawing.Point(20, 142)
+    $btnLaunch.Location = New-Object System.Drawing.Point(20, 166)
     $btnLaunch.Size = New-Object System.Drawing.Size(280, 38)
     $btnLaunch.Cursor = [System.Windows.Forms.Cursors]::Hand; $form.Controls.Add($btnLaunch)
     $form.AcceptButton = $btnLaunch
 
-    $linkSkip = New-Object System.Windows.Forms.LinkLabel
-    $linkSkip.Text = "Don't ask again"
-    $linkSkip.Font = $fontLabel; $linkSkip.LinkColor = $colMuted; $linkSkip.ActiveLinkColor = $colGold
-    $linkSkip.VisitedLinkColor = $colMuted; $linkSkip.BackColor = $colBg
-    $linkSkip.TextAlign = "MiddleCenter"
-    $linkSkip.Location = New-Object System.Drawing.Point(20, 188)
-    $linkSkip.Size = New-Object System.Drawing.Size(280, 18); $form.Controls.Add($linkSkip)
-
-    $form.ClientSize = New-Object System.Drawing.Size(320, 216)
+    $form.ClientSize = New-Object System.Drawing.Size(320, 220)
 
     $btnLaunch.Add_MouseEnter({ $btnLaunch.BackColor = $colGoldHi })
     $btnLaunch.Add_MouseLeave({ $btnLaunch.BackColor = $colGold })
 
     $btnLaunch.Add_Click({
         $script:uiScale = ($slider.Value / 10.0).ToString("0.0")
-        "uiScale=$($script:uiScale)" | Set-Content $settingsFile -Encoding ASCII
-        $script:launched = $true
-        $form.Close()
-    })
-
-    $linkSkip.Add_LinkClicked({
-        $script:uiScale = ($slider.Value / 10.0).ToString("0.0")
-        "uiScale=$($script:uiScale)`nskipScale=true" | Set-Content $settingsFile -Encoding ASCII
+        if ($chkSkip.Checked) {
+            "uiScale=$($script:uiScale)`nskipScale=true" | Set-Content $settingsFile -Encoding ASCII
+        } else {
+            "uiScale=$($script:uiScale)" | Set-Content $settingsFile -Encoding ASCII
+        }
         $script:launched = $true
         $form.Close()
     })
