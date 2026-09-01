@@ -2,6 +2,7 @@ package com.bridge;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.inject.Provides;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,6 +21,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import net.runelite.api.Client;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.GameState;
@@ -36,6 +44,7 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.RuneLite;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -62,6 +71,7 @@ public class OsrsMcpBridgePlugin extends Plugin
 {
 	private static final String EXPORT_SUBDIR = "osrs-mcp-bridge";
 	private static final long FLUSH_INTERVAL_SECONDS = 2;
+	private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
 	// ExternalPluginManager instantiates this class twice per session
 	// (loadExternalPlugins() runs more than once, with no dedup for the
@@ -89,10 +99,22 @@ public class OsrsMcpBridgePlugin extends Plugin
 	@Inject
 	private ScheduledExecutorService executor;
 
+	@Inject
+	private OkHttpClient okHttpClient;
+
+	@Inject
+	private OsrsMcpBridgeConfig config;
+
 	private Gson prettyGson;
 	private Path exportDir;
 	private ScheduledFuture<?> flushTask;
 	private final AtomicReference<ExportSnapshot> pending = new AtomicReference<>();
+
+	@Provides
+	OsrsMcpBridgeConfig provideConfig(ConfigManager configManager)
+	{
+		return configManager.getConfig(OsrsMcpBridgeConfig.class);
+	}
 
 	@Override
 	protected void startUp()
@@ -341,14 +363,63 @@ public class OsrsMcpBridgePlugin extends Plugin
 				}
 			}
 
+			String json = prettyGson.toJson(snapshot);
 			Path tmp = exportDir.resolve(filename + ".tmp");
-			Files.write(tmp, prettyGson.toJson(snapshot).getBytes(StandardCharsets.UTF_8));
+			Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
 			Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+
+			pushToBridgeServer(sanitizeFilename(snapshot.username), json);
 		}
 		catch (IOException e)
 		{
 			log.debug("Failed to write OSRS MCP Bridge export", e);
 		}
+	}
+
+	/**
+	 * Pushes the export straight to the osrs-mcp server over the network,
+	 * replacing the local file as the only way the server sees this data —
+	 * it may run on a different machine (e.g. a Pi) with no access to this
+	 * machine's disk. No-ops when unconfigured, since most people running
+	 * this plugin have no such server. Fire-and-forget: a failure here must
+	 * never affect the local export, which already succeeded above.
+	 */
+	private void pushToBridgeServer(String sanitizedUsername, String json)
+	{
+		String baseUrl = config.ingestUrl();
+		String token = config.ingestToken();
+		if (baseUrl == null || baseUrl.isEmpty() || token == null || token.isEmpty())
+		{
+			return;
+		}
+
+		String url = (baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl)
+			+ "/" + sanitizedUsername;
+
+		Request request = new Request.Builder()
+			.url(url)
+			.header("Authorization", "Bearer " + token)
+			.post(RequestBody.create(JSON, json))
+			.build();
+
+		okHttpClient.newCall(request).enqueue(new Callback()
+		{
+			@Override
+			public void onFailure(Call call, IOException e)
+			{
+				log.debug("Failed to push OSRS MCP Bridge export to {}", url, e);
+			}
+
+			@Override
+			public void onResponse(Call call, Response response)
+			{
+				if (!response.isSuccessful())
+				{
+					log.debug("OSRS MCP Bridge push to {} returned {}", url, response.code());
+				}
+				response.close();
+			}
+		});
 	}
 
 	private ExportSnapshot readPreviousExport(Path target)
