@@ -352,7 +352,8 @@ if (Test-Path $configPath) {
     $content   = [System.IO.File]::ReadAllText($configPath, $utf8NoBom)
     if (-not [string]::IsNullOrEmpty($content)) {
         foreach ($key in @('osrsmcpbridgeplugin', 'cerberushelperplugin', 'araxxorhelperplugin',
-                           'drophighlighterplugin', 'kalphiteflinchplugin', 'farmrunplugin')) {
+                           'drophighlighterplugin', 'kalphiteflinchplugin', 'farmrunplugin',
+                           'sailingsteeringplugin')) {
             if ($content -match "runelite\.$key=") {
                 $content = $content -replace "runelite\.$key=\w+", "runelite.$key=true"
             } else {
