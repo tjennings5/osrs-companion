@@ -95,7 +95,8 @@ GETTING STARTED:
 
 PLUGINS INCLUDED:
   Farm Run Guide, Drop Highlighter, Cerberus Helper,
-  Araxxor Helper, Kalphite Flinch Timer, OSRS MCP Bridge
+  Araxxor Helper, Kalphite Flinch Timer, OSRS MCP Bridge,
+  Sailing Steering Arrow
 
 AUTO-UPDATES:
 The launcher checks for plugin updates every time you start it.
