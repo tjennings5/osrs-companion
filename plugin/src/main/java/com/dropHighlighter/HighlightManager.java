@@ -15,19 +15,27 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 
 /**
- * The single source of truth for which items are highlighted and in what colour.
+ * The single source of truth for which items are highlighted, in what colour, and for which
+ * monster.
  *
  * <p>Selections are stored per monster, because the panel's checkboxes should reflect what you
- * picked for the thing you are looking at. What renders on the ground is the union of every
- * monster's selections: a dropped item carries no record of which NPC dropped it, so there is no
- * honest way to scope the beams themselves.
+ * picked for the thing you are looking at, and — the whole point of this class — because
+ * {@link GroundItemTracker} uses that same per-monster scoping to only light up an item when it
+ * was actually dropped by a monster that has it selected; see {@link #scopedColor}. Ground items
+ * carry no record of which NPC dropped them, so {@code GroundItemTracker} correlates a spawn
+ * against {@code NpcLootReceived} to learn the source before ever rendering anything.
+ *
+ * <p>The manual config string is the one exception: it has no monster to correlate against, so it
+ * stays source-agnostic and highlights regardless of what dropped it — see
+ * {@link #isSourceAgnostic}.
+ *
+ * <p>{@link #effective}, the flattened union of every selection, exists only for the cheap
+ * "is this item selected by *something*" pre-filter and for the panel's "currently highlighted"
+ * view — it is not what decides whether a given ground item actually lights up.
  *
  * <p>Where the same item is selected under two monsters in different colours, the first monster
- * to have selected it wins. Deterministic, and it keeps a tile's colour stable rather than
- * flipping about based on map iteration order.
- *
- * <p>Iteration order of the union is priority order: it decides which item colours a shared
- * tile's beam and which label sits on top.
+ * to have selected it wins in the union. Deterministic, and it keeps priority order stable rather
+ * than flipping about based on map iteration order.
  *
  * <p>All parsing is static and client-free so it can be unit tested without a running client.
  */
@@ -35,12 +43,6 @@ import net.runelite.client.config.ConfigManager;
 @Singleton
 class HighlightManager
 {
-	/**
-	 * Where flat selections from before per-monster storage land, so an existing config keeps
-	 * working instead of silently going dark on upgrade.
-	 */
-	static final String LEGACY_GROUP = "Previous selections";
-
 	private final ConfigManager configManager;
 	private final Gson gson;
 
@@ -49,6 +51,14 @@ class HighlightManager
 
 	/** Flattened union of {@link #selected} plus the manual config string. */
 	private volatile Map<Integer, Color> effective = Collections.emptyMap();
+
+	/**
+	 * The subset of {@link #effective} that isn't tied to a specific monster: the manual config
+	 * string, and whatever was imported from the flat, pre-per-monster config shape. These render
+	 * the moment they touch the ground, same as before this class could scope by source — there is
+	 * no monster to correlate them against.
+	 */
+	private volatile Map<Integer, Color> agnostic = Collections.emptyMap();
 
 	/** item id -> position in {@link #effective}, so callers don't have to walk the map. */
 	private volatile Map<Integer, Integer> priorities = Collections.emptyMap();
@@ -66,14 +76,15 @@ class HighlightManager
 		selected = fromStorage(configManager.getConfiguration(DropHighlighterConfig.GROUP,
 			DropHighlighterConfig.KEY_HIGHLIGHTS), gson);
 
+		Map<Integer, Color> agnosticMerged = new LinkedHashMap<>(parseSeed(config.seedHighlights()));
+
 		Map<Integer, Color> merged = new LinkedHashMap<>();
 		for (Map<Integer, Color> perMonster : selected.values())
 		{
 			// putIfAbsent: first monster to claim an item owns its colour.
 			perMonster.forEach(merged::putIfAbsent);
 		}
-		// The manual test string loses to anything picked in the panel.
-		parseSeed(config.seedHighlights()).forEach(merged::putIfAbsent);
+		agnosticMerged.forEach(merged::putIfAbsent);
 
 		Map<Integer, Integer> order = new HashMap<>(merged.size());
 		int i = 0;
@@ -82,12 +93,19 @@ class HighlightManager
 			order.put(itemId, i++);
 		}
 
+		agnostic = Collections.unmodifiableMap(agnosticMerged);
 		effective = Collections.unmodifiableMap(merged);
 		priorities = order;
 		log.debug("Highlight set reloaded: {} item(s) across {} table(s)",
 			merged.size(), selected.size());
 	}
 
+	/**
+	 * Whether this item id is selected anywhere at all — under some monster, or the source-agnostic
+	 * set. Used only to decide whether a freshly spawned ground item is worth provisionally
+	 * tracking while its actual source is still being resolved; it says nothing about whether the
+	 * item should render.
+	 */
 	boolean isHighlighted(int itemId)
 	{
 		return effective.containsKey(itemId);
@@ -96,6 +114,32 @@ class HighlightManager
 	Color colorFor(int itemId)
 	{
 		return effective.get(itemId);
+	}
+
+	/**
+	 * True for the manual config string and whatever was imported from the old flat config shape —
+	 * these have no monster to correlate against, so they highlight regardless of what dropped
+	 * them, same as before this class could scope by source.
+	 */
+	boolean isSourceAgnostic(int itemId)
+	{
+		return agnostic.containsKey(itemId);
+	}
+
+	Color agnosticColor(int itemId)
+	{
+		return agnostic.get(itemId);
+	}
+
+	/** Colour for this item when dropped specifically by {@code npcName}, or null if it wasn't selected under that monster. */
+	Color scopedColor(String npcName, int itemId)
+	{
+		if (npcName == null)
+		{
+			return null;
+		}
+		Map<Integer, Color> forMonster = selected.get(npcName);
+		return forMonster == null ? null : forMonster.get(itemId);
 	}
 
 	/** Lower sorts first. Unknown ids sort last rather than throwing. */
@@ -108,6 +152,12 @@ class HighlightManager
 	boolean isEmpty()
 	{
 		return effective.isEmpty();
+	}
+
+	/** Whether there is anything a scene rescan could actually restore. See {@link #agnostic}. */
+	boolean hasSourceAgnosticHighlights()
+	{
+		return !agnostic.isEmpty();
 	}
 
 	/** What this one monster has selected, for rendering its checkbox and swatch state. */
@@ -151,6 +201,19 @@ class HighlightManager
 
 		next.values().removeIf(Map::isEmpty);
 		persist(next);
+	}
+
+	/**
+	 * Clears every panel selection across every monster in one go. Does not touch the manual
+	 * config string — same as {@link #getAllSelected}, that one is not the panel's to remove.
+	 */
+	void clearAll()
+	{
+		if (selected.isEmpty())
+		{
+			return;
+		}
+		persist(Collections.emptyMap());
 	}
 
 	/** Recolours an item everywhere it is selected, so the union can't disagree with itself. */
@@ -317,11 +380,7 @@ class HighlightManager
 		return root;
 	}
 
-	/**
-	 * Reads the stored selections, accepting both the current nested shape and the flat
-	 * {@code {"560":"#FF0000"}} one written before selections became per monster. A flat config
-	 * is folded under {@link #LEGACY_GROUP} so those highlights keep rendering.
-	 */
+	/** Reads the stored selections: monster name -> (item id -> colour). */
 	static Map<String, Map<Integer, Color>> fromStorage(String json, Gson gson)
 	{
 		Map<String, Map<Integer, Color>> out = new LinkedHashMap<>();
@@ -350,24 +409,14 @@ class HighlightManager
 
 		for (Map.Entry<String, JsonElement> entry : root.entrySet())
 		{
-			JsonElement value = entry.getValue();
-
-			if (value.isJsonObject())
+			if (!entry.getValue().isJsonObject())
 			{
-				Map<Integer, Color> items = readColorMap(value.getAsJsonObject());
-				if (!items.isEmpty())
-				{
-					out.put(entry.getKey(), items);
-				}
 				continue;
 			}
-
-			// Flat legacy shape: the key is an item id, not a monster name.
-			Integer itemId = parseItemId(entry.getKey());
-			Color color = value.isJsonPrimitive() ? parseHex(value.getAsString()) : null;
-			if (itemId != null && color != null)
+			Map<Integer, Color> items = readColorMap(entry.getValue().getAsJsonObject());
+			if (!items.isEmpty())
 			{
-				out.computeIfAbsent(LEGACY_GROUP, m -> new LinkedHashMap<>()).put(itemId, color);
+				out.put(entry.getKey(), items);
 			}
 		}
 

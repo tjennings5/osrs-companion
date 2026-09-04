@@ -79,6 +79,7 @@ class DropHighlighterPanel extends PluginPanel implements DropRowPanel.Listener
 	 */
 	private static final String ACTIVE_VIEW = "Currently highlighted";
 
+	private final JButton clearAllButton = new JButton("Clear all");
 	private final JLabel emptyMessage = new JLabel();
 	private final JPanel rows = new JPanel();
 	private final List<DropRowPanel> rowPanels = new ArrayList<>();
@@ -127,10 +128,21 @@ class DropHighlighterPanel extends PluginPanel implements DropRowPanel.Listener
 			}
 		});
 
+		clearAllButton.setFont(FontManager.getRunescapeSmallFont());
+		clearAllButton.setFocusable(false);
+		clearAllButton.setToolTipText("Untick everything highlighted across every monster");
+		clearAllButton.setVisible(false);
+		clearAllButton.addActionListener(e ->
+		{
+			highlights.clearAll();
+			buildActiveView();
+		});
+
 		JPanel header = new JPanel(new BorderLayout());
 		header.setBackground(getBackground());
 		header.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
 		header.add(tableChooser, BorderLayout.CENTER);
+		header.add(clearAllButton, BorderLayout.EAST);
 		add(header, BorderLayout.NORTH);
 
 		rows.setLayout(new BoxLayout(rows, BoxLayout.Y_AXIS));
@@ -198,6 +210,7 @@ class DropHighlighterPanel extends PluginPanel implements DropRowPanel.Listener
 		{
 			lastMonster = monsterName;
 		}
+		clearAllButton.setVisible(false);
 		rows.removeAll();
 		rowPanels.clear();
 		syncChooser();
@@ -240,6 +253,7 @@ class DropHighlighterPanel extends PluginPanel implements DropRowPanel.Listener
 		syncChooser();
 
 		Map<Integer, Color> active = highlights.getAllSelected();
+		clearAllButton.setVisible(!active.isEmpty());
 		if (active.isEmpty())
 		{
 			emptyMessage.setText("<html><div style='text-align:center;'>Nothing is highlighted "
