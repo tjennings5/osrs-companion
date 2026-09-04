@@ -12,15 +12,20 @@ import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
 import net.runelite.api.WorldView;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemDespawned;
 import net.runelite.api.events.ItemQuantityChanged;
 import net.runelite.api.events.ItemSpawned;
-import net.runelite.api.events.MenuOpened;
+import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.NpcLootReceived;
+import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -65,6 +70,9 @@ public class DropHighlighterPlugin extends Plugin
 
 	@Inject
 	private DropTableProvider dropTables;
+
+	@Inject
+	private ItemManager itemManager;
 
 	private NavigationButton navButton;
 
@@ -119,9 +127,11 @@ public class DropHighlighterPlugin extends Plugin
 	/**
 	 * Adds a "Highlight Drops" option to any NPC's right-click menu.
 	 *
-	 * <p>MenuOpened rather than MenuEntryAdded: the latter fires once per entry, so an NPC with
-	 * Attack / Talk-to / Examine would collect three copies of the option. This fires once with
-	 * the whole menu.
+	 * <p>Hooked on the NPC's Examine entry specifically, and inserted right there — the same spot
+	 * NPC Indicators' Tag That NPC inserts its own entry — rather than grabbed generically off
+	 * whatever menu happens to be open. Examine is added to the menu before Attack, so an entry
+	 * created the moment it appears lands just above Examine and below Attack, instead of
+	 * becoming the new default left-click action.
 	 *
 	 * <p>The entry is MenuAction.RUNELITE — it is handled entirely client side and sends nothing
 	 * to the server.
@@ -130,23 +140,20 @@ public class DropHighlighterPlugin extends Plugin
 	 * the menu the game would have shown on its own.
 	 */
 	@Subscribe
-	public void onMenuOpened(MenuOpened event)
+	public void onMenuEntryAdded(MenuEntryAdded event)
 	{
 		if (!config.menuModifier().isHeld(client))
 		{
 			return;
 		}
 
-		NPC npc = null;
-		for (MenuEntry entry : event.getMenuEntries())
+		MenuEntry entry = event.getMenuEntry();
+		if (entry.getType() != MenuAction.EXAMINE_NPC)
 		{
-			if (entry.getNpc() != null)
-			{
-				npc = entry.getNpc();
-				break;
-			}
+			return;
 		}
 
+		NPC npc = entry.getNpc();
 		if (npc == null)
 		{
 			return;
@@ -161,7 +168,7 @@ public class DropHighlighterPlugin extends Plugin
 		final String monsterName = name;
 		client.getMenu().createMenuEntry(-1)
 			.setOption("Highlight Drops")
-			.setTarget("<col=ffff00>" + monsterName + "</col>")
+			.setTarget(entry.getTarget())
 			.setType(MenuAction.RUNELITE)
 			.onClick(e ->
 			{
@@ -189,6 +196,40 @@ public class DropHighlighterPlugin extends Plugin
 	public void onItemQuantityChanged(ItemQuantityChanged event)
 	{
 		tracker.itemQuantityChanged(event.getTile(), event.getItem());
+	}
+
+	/**
+	 * Resolves which monster a provisional ground-item spawn actually came from. Fires shortly
+	 * after the items themselves spawn (RuneLite correlates the kill and the ground items before
+	 * posting this), which is why spawns aren't rendered until this confirms them — see
+	 * {@link GroundItemTracker}.
+	 *
+	 * <p>{@code ItemStack} itself carries no usable location for almost every NPC — RuneLite's own
+	 * correlation doesn't set one — so the dying NPC's own footprint is used as the drop area
+	 * instead, the same area RuneLite matched the ground items against internally.
+	 */
+	@Subscribe
+	public void onNpcLootReceived(NpcLootReceived event)
+	{
+		NPC npc = event.getNpc();
+		String name = npc.getName();
+		if (name == null)
+		{
+			return;
+		}
+
+		WorldArea dropArea = npc.getWorldArea();
+		for (ItemStack stack : event.getItems())
+		{
+			int itemId = itemManager.canonicalize(stack.getId());
+			tracker.confirmDrop(dropArea, itemId, name);
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		tracker.expirePending(client.getTickCount());
 	}
 
 	@Subscribe

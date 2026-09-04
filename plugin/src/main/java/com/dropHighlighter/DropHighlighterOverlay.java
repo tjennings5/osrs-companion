@@ -57,7 +57,6 @@ class DropHighlighterOverlay extends Overlay
 	private final Client client;
 	private final DropHighlighterConfig config;
 	private final GroundItemTracker tracker;
-	private final HighlightManager highlights;
 	private final ItemManager itemManager;
 
 	/** Item names never change, so this only ever grows to the size of the highlight set. */
@@ -65,12 +64,11 @@ class DropHighlighterOverlay extends Overlay
 
 	@Inject
 	DropHighlighterOverlay(Client client, DropHighlighterConfig config, GroundItemTracker tracker,
-		HighlightManager highlights, ItemManager itemManager)
+		ItemManager itemManager)
 	{
 		this.client = client;
 		this.config = config;
 		this.tracker = tracker;
-		this.highlights = highlights;
 		this.itemManager = itemManager;
 		setLayer(OverlayLayer.ABOVE_SCENE);
 		setPosition(OverlayPosition.DYNAMIC);
@@ -161,7 +159,7 @@ class DropHighlighterOverlay extends Overlay
 			return;
 		}
 
-		Color beamColor = highlights.colorFor(items.get(0).getItemId());
+		Color beamColor = items.get(0).getColor();
 		if (beamColor != null)
 		{
 			drawBeam(graphics, base, tip, beamColor);
@@ -241,11 +239,7 @@ class DropHighlighterOverlay extends Overlay
 		for (int i = 0; i < count; i++)
 		{
 			TrackedItem item = items.get(i);
-			Color color = highlights.colorFor(item.getItemId());
-			if (color == null)
-			{
-				continue;
-			}
+			Color color = item.getColor();
 
 			String text = label(item);
 

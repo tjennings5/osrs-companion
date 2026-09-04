@@ -7,7 +7,6 @@ import java.util.Map;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -144,18 +143,15 @@ public class HighlightManagerTest
 	}
 
 	@Test
-	public void flatLegacyConfigIsMigratedInsteadOfDiscarded()
+	public void flatNonObjectEntriesAreIgnored()
 	{
-		// Written before selections were per monster. Folding it under a named group keeps those
-		// highlights rendering rather than silently going dark on upgrade.
+		// Every stored entry must be a monster -> items object; a bare item:colour pair at the
+		// top level has no monster to scope against and is simply not a shape this plugin writes.
 		Map<String, Map<Integer, Color>> restored = HighlightManager.fromStorage(
-			"{\"526\":\"#FF0000\",\"4151\":\"#00FFFF\"}", gson);
+			"{\"526\":\"#FF0000\",\"Goblin\":{\"4151\":\"#00FFFF\"}}", gson);
 
 		assertEquals(1, restored.size());
-		Map<Integer, Color> legacy = restored.get(HighlightManager.LEGACY_GROUP);
-		assertNotNull(legacy);
-		assertEquals(Color.RED, legacy.get(526));
-		assertEquals(Color.CYAN, legacy.get(4151));
+		assertEquals(Color.CYAN, restored.get("Goblin").get(4151));
 	}
 
 	@Test
