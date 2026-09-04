@@ -15,14 +15,13 @@ git clone https://github.com/tjennings5/osrs-companion.git
 cd osrs-companion
 ```
 
-To launch RuneLite with the plugins loaded for testing, run from the `plugin/` folder in WSL:
+To build the plugins and launch RuneLite with them loaded for testing, run from PowerShell in the repo root:
 
-```bash
-cd plugin
-./gradlew run
+```powershell
+.\dev-test.ps1
 ```
 
-This downloads all dependencies automatically on first run (may take a minute). RuneLite will open with all the plugins active.
+This builds the fat JAR via WSL and launches RuneLite directly with your real settings — it skips the GitHub update check, first-run setup, and zip/release steps that only matter for the packaged distribution. It doesn't touch `dist\` or GitHub, so it's safe to run repeatedly while iterating. Dependencies download automatically on first run (may take a minute).
 
 ## Project layout
 
@@ -48,7 +47,7 @@ companion-launch.ps1       ← template for the portable launcher (stamped by bu
 
 1. Fork this repo and clone your fork
 2. Make your changes in `plugin/src/`
-3. Test with `./gradlew run` from `plugin/` in WSL
+3. Test with `.\dev-test.ps1` from the repo root
 4. Submit a pull request — describe what you changed and why
 
 ## Adding a new plugin
@@ -57,7 +56,7 @@ companion-launch.ps1       ← template for the portable launcher (stamped by bu
 2. Write your plugin class annotated with `@PluginDescriptor`
 3. Register it in `OsrsMcpBridgePluginTest.java` — find the `ExternalPluginManager.loadBuiltin(...)` call and add your class
 4. Add the plugin key to the enabled-list in `companion-launch.ps1` (the `foreach ($key in @(...))` block)
-5. Test with `./gradlew run`
+5. Test with `.\dev-test.ps1`
 
 ## Code style
 
