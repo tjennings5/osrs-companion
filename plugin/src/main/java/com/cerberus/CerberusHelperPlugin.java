@@ -70,6 +70,9 @@ public class CerberusHelperPlugin extends Plugin
 	/** Her attack speed in ticks, from the wiki infobox and confirmed against a recorded fight. */
 	private static final int ATTACK_SPEED_TICKS = 6;
 
+	/** Game ticks per minute (0.6s each), used to turn the trip timeout config into ticks. */
+	private static final int TICKS_PER_MINUTE = 100;
+
 	/** Cerberus' experience multiplier, from xpbonus = 15 on her wiki infobox. */
 	private static final double CERBERUS_XP_MULTIPLIER = 1.15;
 
@@ -161,6 +164,13 @@ public class CerberusHelperPlugin extends Plugin
 
 	private boolean holdWarned;
 
+	/** Kills since the last trip boundary; see {@link #maybeStartNewTrip()}. */
+	@Getter
+	private int killsThisTrip;
+
+	/** Tick Cerberus was last seen alive, or -1 before the first sighting. */
+	private int lastActivityTick = -1;
+
 	@Provides
 	CerberusHelperConfig provideConfig(ConfigManager configManager)
 	{
@@ -230,9 +240,28 @@ public class CerberusHelperPlugin extends Plugin
 		if (isCerberus(event.getNpc()))
 		{
 			cerberus = event.getNpc();
+			maybeStartNewTrip();
 			resetCounters();
 			log.debug("Cerberus spawned (id {}) - tracking", event.getNpc().getId());
 		}
+	}
+
+	/**
+	 * Starts a fresh trip's kill count if Cerberus has sat unfought for longer
+	 * than the configured timeout — the closest proxy this plugin has for "you
+	 * went and banked", since it never tracks the player's position or the
+	 * instance itself.
+	 */
+	private void maybeStartNewTrip()
+	{
+		int tick = client.getTickCount();
+		int timeoutTicks = config.tripTimeoutMinutes() * TICKS_PER_MINUTE;
+		if (lastActivityTick >= 0 && tick - lastActivityTick > timeoutTicks)
+		{
+			log.debug("New Cerberus trip: idle for {} ticks (timeout {})", tick - lastActivityTick, timeoutTicks);
+			killsThisTrip = 0;
+		}
+		lastActivityTick = tick;
 	}
 
 	@Subscribe
@@ -252,6 +281,7 @@ public class CerberusHelperPlugin extends Plugin
 			return;
 		}
 
+		lastActivityTick = client.getTickCount();
 		reconcileWithHealthBar();
 		estimatedMaxHit = estimateMaxHit();
 
@@ -579,7 +609,9 @@ public class CerberusHelperPlugin extends Plugin
 
 		if (animation == AnimationID.CERBERUS_DEATH)
 		{
-			log.debug("CERBTIMING tick={} anim={} name=DEATH hp={} outcome=death-reset", tick, animation, lastKnownHp);
+			killsThisTrip++;
+			log.debug("CERBTIMING tick={} anim={} name=DEATH hp={} outcome=death-reset kills={}",
+				tick, animation, lastKnownHp, killsThisTrip);
 			resetFight("Cerberus died");
 			return;
 		}
