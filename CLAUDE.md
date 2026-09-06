@@ -15,6 +15,16 @@ Releases: `gh release create` via `build-package.ps1 -Publish`
 
 ---
 
+## Branching & PRs
+
+`main` is protected by convention: it should only move forward via reviewed PRs, not direct commits.
+
+- All work (plugin changes, launcher changes, CLAUDE.md updates) goes on a feature branch, e.g. `fix/cerberus-audio-path`.
+- Open a PR against `main` (`gh pr create`) and let the user review and merge it themselves — don't merge on their behalf.
+- Only `main` gets published: `build-package.ps1 -Publish` and the release workflow assume `main` is the checked-out branch.
+
+---
+
 ## Directory structure
 
 ```
