@@ -22,8 +22,6 @@ A curated set of RuneLite plugins packaged as a one-click launcher. Drop the fol
 3. **Unzip anywhere** — Desktop, Documents, wherever.
 4. **Double-click `launch.bat`.**
 
-On your first launch you'll be asked whether to import bundled RuneLite settings (hotkeys, bank tags, UI layout). Say Yes to start with the same setup as everyone else, or No to keep your own.
-
 ## Updates
 
 **Plugin updates** — Every time you launch, the launcher silently checks this repo for a newer release. If one exists, it downloads before RuneLite opens. Nothing to do on your end.
