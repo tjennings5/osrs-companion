@@ -24,7 +24,9 @@ jobs:
 
       - name: Build fat JAR
         working-directory: plugin
-        run: ./gradlew --no-daemon shadowJar
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon shadowJar
 
       - name: Assemble dist
         run: |
