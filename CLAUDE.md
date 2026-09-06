@@ -15,16 +15,6 @@ Releases: `gh release create` via `build-package.ps1 -Publish`
 
 ---
 
-## Branching & PRs
-
-`main` is protected by convention: it should only move forward via reviewed PRs, not direct commits.
-
-- All work (plugin changes, launcher changes, CLAUDE.md updates) goes on a feature branch, e.g. `fix/cerberus-audio-path`.
-- Open a PR against `main` (`gh pr create`) and let the user review and merge it themselves — don't merge on their behalf.
-- Only `main` gets published: `build-package.ps1 -Publish` and the release workflow assume `main` is the checked-out branch.
-
----
-
 ## Directory structure
 
 ```
@@ -87,7 +77,9 @@ In normal use you don't run this yourself — merging a PR to `main` publishes a
 
 ## Branching, PRs & CI
 
-`main` is protected on GitHub: no direct pushes, PRs required, enforced for everyone including admins. All work (plugin changes, launcher changes, CLAUDE.md updates) goes on a feature branch and gets merged via a reviewed PR.
+`main` is protected on GitHub via a ruleset: no direct pushes (force-push/deletion blocked too), PRs required, 1 approval required. Tyler (repo owner) has a pull-request-only bypass on the approval count, so he can merge his own PRs without a second reviewer — he still can't push directly. Anyone else's PR needs an actual approval.
+
+All work (plugin changes, launcher changes, CLAUDE.md updates) goes on a feature branch, e.g. `fix/cerberus-audio-path`, and gets merged via PR — don't merge on the user's behalf unless asked to.
 
 **On every merge to `main`**, `.github/workflows/publish.yml` runs on GitHub-hosted `ubuntu-latest` runners and automatically:
 1. Builds `extra-plugins.jar` via `./gradlew shadowJar` (JDK 17, no WSL needed in CI)

@@ -3,6 +3,8 @@ name: Build and publish release
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -78,7 +80,16 @@ jobs:
           cd dist
           zip -r ../osrs-companion-setup.zip .
 
+      - name: Upload package for inspection (PR runs only)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: osrs-companion-setup
+          path: osrs-companion-setup.zip
+          retention-days: 7
+
       - name: Create GitHub release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
