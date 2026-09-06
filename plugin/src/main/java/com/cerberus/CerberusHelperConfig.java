@@ -145,6 +145,32 @@ public interface CerberusHelperConfig extends Config
 		return true;
 	}
 
+	@ConfigItem(
+		keyName = "showKillCount",
+		name = "Show kills this trip",
+		description = "Adds a kill counter to the overlay, so you can see how many you get done before banking.",
+		position = 8
+	)
+	default boolean showKillCount()
+	{
+		return true;
+	}
+
+	@Range(min = 1, max = 60)
+	@ConfigItem(
+		keyName = "tripTimeoutMinutes",
+		name = "New trip after (minutes)",
+		description =
+			"How long Cerberus has to sit unfought before the next kill starts a new trip and the counter "
+				+ "resets to 1. Covers a bank run; a short gap between kills (getting back to the lair, a "
+				+ "brief disconnect) does not reset it.",
+		position = 9
+	)
+	default int tripTimeoutMinutes()
+	{
+		return 15;
+	}
+
 	@Range(min = 0, max = 2)
 	@ConfigItem(
 		keyName = "phaseToleranceTicks",
