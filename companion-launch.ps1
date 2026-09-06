@@ -136,9 +136,7 @@ $fontTitle  = New-Object System.Drawing.Font("Segoe UI Semibold", 11)
 $fontBtn    = New-Object System.Drawing.Font("Segoe UI Semibold", 10)
 
 $shortcutFlag   = "$scriptDir\.setup-done"
-$bundled        = "$scriptDir\settings\default-0.properties"
 $isFirstRun     = -not (Test-Path $shortcutFlag)
-$importSettings = $false
 
 function Get-RuneLiteIcon {
     $exe = "$env:LOCALAPPDATA\RuneLite\RuneLite.exe"
@@ -180,29 +178,17 @@ if ($isFirstRun) {
     $chkShortcut.Location = New-Object System.Drawing.Point(20, 82); $chkShortcut.AutoSize = $true
     $chkShortcut.Checked = $true; $frmSetup.Controls.Add($chkShortcut)
 
-    $chkSettings = $null
-    $settingsOffset = 0
-    if (Test-Path $bundled) {
-        $chkSettings = New-Object System.Windows.Forms.CheckBox
-        $chkSettings.Text = "Import bundled RuneLite settings"
-        $chkSettings.Font = $fontUI; $chkSettings.ForeColor = $colText; $chkSettings.BackColor = $colBg
-        $chkSettings.Location = New-Object System.Drawing.Point(20, 114); $chkSettings.AutoSize = $true
-        $chkSettings.Checked = (-not (Test-Path $configPath))
-        $frmSetup.Controls.Add($chkSettings)
-        $settingsOffset = 32
-    }
-
     $btnContinue = New-Object System.Windows.Forms.Button
     $btnContinue.Text = "Continue"
     $btnContinue.Font = $fontBtn; $btnContinue.ForeColor = $colBg; $btnContinue.BackColor = $colGold
     $btnContinue.FlatStyle = "Flat"; $btnContinue.FlatAppearance.BorderSize = 0
-    $btnContinue.Location = New-Object System.Drawing.Point(20, (114 + $settingsOffset))
+    $btnContinue.Location = New-Object System.Drawing.Point(20, 114)
     $btnContinue.Size = New-Object System.Drawing.Size(280, 38)
     $btnContinue.Cursor = [System.Windows.Forms.Cursors]::Hand
     $frmSetup.Controls.Add($btnContinue)
     $frmSetup.AcceptButton = $btnContinue
 
-    $frmSetup.ClientSize = New-Object System.Drawing.Size(320, (168 + $settingsOffset))
+    $frmSetup.ClientSize = New-Object System.Drawing.Size(320, 168)
 
     $btnContinue.Add_MouseEnter({ $btnContinue.BackColor = $colGoldHi })
     $btnContinue.Add_MouseLeave({ $btnContinue.BackColor = $colGold })
@@ -232,7 +218,6 @@ if ($isFirstRun) {
     }
 
     $null | Set-Content $shortcutFlag
-    $importSettings = ($chkSettings -ne $null -and $chkSettings.Checked)
 }
 
 # --- Scale dialog (shown on every subsequent run unless "don't ask again") ---
@@ -333,16 +318,6 @@ if (-not $skipScale) {
 }
 
 if (-not $launched) { exit 0 }   # user closed the window
-
-# --- First-run settings import ---
-if ($importSettings) {
-    Write-Host "Importing bundled RuneLite settings..."
-    New-Item -ItemType Directory -Force -Path (Split-Path $configPath) | Out-Null
-    Copy-Item $bundled $configPath -Force
-    $profilesJson = "$scriptDir\settings\profiles.json"
-    if (Test-Path $profilesJson) { Copy-Item $profilesJson (Split-Path $configPath) -Force }
-    Write-Host "  Settings imported."
-}
 
 # --- Enable plugins in the RuneLite config ---
 # RuneLite doesn't persist dev-loaded plugins' enabled state, so they reset to
