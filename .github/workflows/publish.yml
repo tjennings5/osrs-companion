@@ -1,0 +1,93 @@
+name: Build and publish release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build fat JAR
+        working-directory: plugin
+        run: ./gradlew --no-daemon shadowJar
+
+      - name: Assemble dist
+        run: |
+          set -euo pipefail
+
+          VERSION="v$(date -u +%Y%m%d-%H%M)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          mkdir -p dist
+          jar_file=$(ls plugin/build/libs/*-all.jar | head -n1)
+          cp "$jar_file" dist/extra-plugins.jar
+          echo "$VERSION" > dist/version.txt
+
+          sed "s/__GITHUB_REPO__/${GITHUB_REPOSITORY//\//\\/}/" companion-launch.ps1 > dist/launch.ps1
+
+          cat > "dist/RuneLite (Extra Plugins).bat" <<'BAT'
+          @echo off
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch.ps1"
+          BAT
+
+          cat > dist/README.txt <<TXT
+          OSRS Companion $VERSION
+          =======================
+
+          GETTING STARTED:
+          1. Install RuneLite from https://runelite.net and launch it at least once.
+          2. Put this folder anywhere you like - it stays here permanently.
+          3. Double-click "RuneLite (Extra Plugins).bat".
+             First run shows a setup screen to create a Desktop shortcut.
+             After that it goes straight to the launcher every time.
+          4. To pin to taskbar: right-click the Desktop shortcut, select Pin to taskbar.
+
+          PLUGINS INCLUDED:
+            Farm Run Guide, Drop Highlighter, Cerberus Helper,
+            Araxxor Helper, Kalphite Flinch Timer, OSRS MCP Bridge,
+            Sailing Steering Arrow
+
+          AUTO-UPDATES:
+          The launcher checks for plugin updates every time you start it.
+          If a new version is available it downloads silently before launching.
+          You never need a new zip - just keep using the same shortcut.
+
+          If login fails after a game update: launch RuneLite normally once
+          (it will update itself), then use your shortcut as usual.
+
+          DISPLAY SCALE:
+          Default scale is 2.0 (HiDPI). Adjust with the slider in the launcher.
+          TXT
+
+      - name: Zip package
+        run: |
+          set -euo pipefail
+          cd dist
+          zip -r ../osrs-companion-setup.zip .
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$VERSION" \
+            osrs-companion-setup.zip \
+            --repo "${{ github.repository }}" \
+            --title "OSRS Companion $VERSION" \
+            --notes "Download **osrs-companion-setup.zip**, extract it anywhere, and double-click **launch.bat**.
+
+          Already set up? Your launcher will auto-download this update on next launch. Nothing to do." \
+            --latest

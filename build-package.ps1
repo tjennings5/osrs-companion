@@ -23,8 +23,6 @@ $winPluginDir  = "$PSScriptRoot\plugin"
 $driveLetter   = $winPluginDir.Substring(0, 1).ToLower()
 $wslProjectDir = '/mnt/' + $driveLetter + '/' + $winPluginDir.Substring(3).Replace('\', '/')
 $distDir       = "$PSScriptRoot\dist"
-$configPath    = "$env:USERPROFILE\.runelite\profiles2\default-0.properties"
-$profileDir    = Split-Path $configPath -Parent
 $version       = "v" + (Get-Date -Format 'yyyyMMdd-HHmm')
 
 # --- Build fat JAR via existing shadowJar task ---
@@ -46,22 +44,11 @@ Write-Host "  Built: $($jar.Name) ($sizeMB MB)"
 
 # --- Assemble dist\ ---
 Write-Host "Assembling dist\..."
-New-Item -ItemType Directory -Force -Path "$distDir\settings" | Out-Null
+New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 
 Copy-Item $jar.FullName -Destination "$distDir\extra-plugins.jar" -Force
 
 $version | Set-Content "$distDir\version.txt" -Encoding ASCII
-
-if (Test-Path $configPath) {
-    Copy-Item $configPath -Destination "$distDir\settings\default-0.properties" -Force
-    Write-Host "  Bundled RuneLite settings snapshot."
-} else {
-    Write-Warning "  RuneLite config not found at $configPath - no settings bundled."
-}
-foreach ($f in @('profiles.json')) {
-    $src = Join-Path $profileDir $f
-    if (Test-Path $src) { Copy-Item $src "$distDir\settings\" -Force }
-}
 
 # Portable launcher - stamp in the GitHub repo name
 $launcherSrc = "$PSScriptRoot\companion-launch.ps1"
@@ -89,7 +76,7 @@ GETTING STARTED:
 1. Install RuneLite from https://runelite.net and launch it at least once.
 2. Put this folder anywhere you like - it stays here permanently.
 3. Double-click "RuneLite (Extra Plugins).bat".
-   First run shows a setup screen to create a Desktop shortcut and import settings.
+   First run shows a setup screen to create a Desktop shortcut.
    After that it goes straight to the launcher every time.
 4. To pin to taskbar: right-click the Desktop shortcut, select Pin to taskbar.
 

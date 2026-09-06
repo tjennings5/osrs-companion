@@ -49,9 +49,6 @@ osrs-companion/
     launch.ps1            # Stamped from companion-launch.ps1 (GITHUB_REPO filled in)
     extra-plugins.jar     # Fat JAR built by shadowJar (all plugin classes + deps)
     version.txt           # Current version tag (e.g. v20250831-1430)
-    settings/
-      default-0.properties  # Bundled RuneLite settings snapshot
-      profiles.json
 ```
 
 ---
@@ -71,18 +68,34 @@ Builds the fat JAR and launches RuneLite directly with your real settings — sk
 .\build-package.ps1
 ```
 
-**Build + publish GitHub release:**
+**Build + publish GitHub release (manual, rarely needed now):**
 ```powershell
 .\build-package.ps1 -Publish
 ```
 
 This:
 1. Runs `./gradlew shadowJar` via WSL to compile `extra-plugins.jar`
-2. Copies the JAR, settings, and stamped launcher into `dist\`
+2. Copies the JAR and stamped launcher into `dist\`
 3. Zips `dist\` → `osrs-companion-setup.zip`
 4. Creates a GitHub release with the zip as the only asset
 
 Gradle is run through WSL (Ubuntu). The Gradle wrapper is at `plugin/gradle/wrapper/gradle-wrapper.properties` — if it's missing, copy it from the `osrs-mcp` repo.
+
+In normal use you don't run this yourself — merging a PR to `main` publishes automatically (see below). This script is kept for local dry-run builds (`.\build-package.ps1` without `-Publish`) or as a manual fallback.
+
+---
+
+## Branching, PRs & CI
+
+`main` is protected on GitHub: no direct pushes, PRs required, enforced for everyone including admins. All work (plugin changes, launcher changes, CLAUDE.md updates) goes on a feature branch and gets merged via a reviewed PR.
+
+**On every merge to `main`**, `.github/workflows/publish.yml` runs on GitHub-hosted `ubuntu-latest` runners and automatically:
+1. Builds `extra-plugins.jar` via `./gradlew shadowJar` (JDK 17, no WSL needed in CI)
+2. Assembles `dist\` (jar, `version.txt`, `launch.ps1` stamped from `companion-launch.ps1`, the `.bat`, `README.txt`)
+3. Zips it to `osrs-companion-setup.zip`
+4. Publishes a GitHub release (tag `vYYYYMMDD-HHMM`) via `gh release create`, marked `--latest`
+
+No RuneLite settings are bundled into releases (removed — see below); the workflow needs nothing from a real dev machine to run.
 
 ---
 
@@ -107,8 +120,9 @@ Two phases controlled by `$scriptDir\.setup-done` flag file:
 
 **First run** (flag absent): WinForms dialog with:
 - "Create Desktop shortcut" checkbox (checked by default)
-- "Import bundled RuneLite settings" checkbox (shown only if `settings\default-0.properties` exists; pre-checked if user has no existing config)
-- "Continue" button → writes `.setup-done`, creates shortcut, sets `$importSettings`
+- "Continue" button → writes `.setup-done`, creates shortcut
+
+There is no bundled/imported RuneLite settings feature — that was removed since a settings snapshot only ever reflected Tyler's own account and wasn't useful to other users. Each user keeps their own RuneLite config; only `.setup-done` and `launcher-settings.txt` are launcher-managed state.
 
 **Subsequent runs** (flag present): Scale dialog with:
 - Slider (1.0–3.0 in 0.1 steps), text box showing current value
