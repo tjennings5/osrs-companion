@@ -48,6 +48,14 @@ class CerberusHelperOverlay extends OverlayPanel
 			.color(TRIPLE)
 			.build());
 
+		if (config.showKillCount())
+		{
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Kills this trip")
+				.right(Integer.toString(plugin.getKillsThisTrip()))
+				.build());
+		}
+
 		panelComponent.getChildren().add(LineComponent.builder()
 			.left("Attack")
 			.right("#" + plugin.getAttackCount())
