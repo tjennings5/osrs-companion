@@ -84,4 +84,18 @@ public class AttackClockTest
 		assertEquals(1, clock.getAttackCount());
 		assertEquals("must re-phase from the last component", 19, clock.getNextAttackTick());
 	}
+
+	@Test
+	public void lateAnimationIsTheNextAttackNotASubAttack()
+	{
+		// A recorded live fight showed a lava/soul animation arriving 2 ticks
+		// *after* the scheduled tick (DEFEND covering it a little longer than
+		// usual), which the old logic misread as a triple component and used to
+		// force a bogus resync. Late arrivals are this slot's own attack, tardy -
+		// not evidence of a combo.
+		AttackClock clock = anchoredAt(10, 6);
+		assertEquals(AttackClock.Event.ATTACK, clock.onAttackAnimation(18));
+		assertEquals("a late attack must still count as a new attack", 2, clock.getAttackCount());
+		assertEquals(24, clock.getNextAttackTick());
+	}
 }

@@ -122,13 +122,26 @@ public final class AttackClock
 			return Event.ATTACK;
 		}
 
-		// Off schedule: a further component of the attack already counted. Re-phase
-		// from it, because the next attack follows the combo's *last* component
-		// rather than its first — phasing from the first puts the clock 3 ticks
-		// early for the rest of the fight.
-		nextAttackTick = tick + attackSpeedTicks;
+		if (tick < nextAttackTick - tolerance)
+		{
+			// Early: a further component of the attack already counted (this is what
+			// Cerberus' triple looks like - components land 3-4 ticks apart, well
+			// inside the current attack's slot). Re-phase from it, because the next
+			// attack follows the combo's *last* component rather than its first -
+			// phasing from the first puts the clock 3 ticks early for the rest of the
+			// fight.
+			nextAttackTick = tick + attackSpeedTicks;
+			unconfirmedSlots = 0;
+			return Event.SUB_ATTACK;
+		}
+
+		// Late: not a duplicate, just this slot's own attack arriving behind
+		// schedule (DEFEND covering the animation a tick or two longer than usual).
+		// Registering it as SUB_ATTACK would misreport an ordinary attack as a
+		// triple and corrupt the count - it is the scheduled attack, just tardy.
+		registerAttack(tick);
 		unconfirmedSlots = 0;
-		return Event.SUB_ATTACK;
+		return Event.ATTACK;
 	}
 
 	/**

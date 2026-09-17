@@ -8,9 +8,13 @@
 # Usage:
 #   .\dev-test.ps1                 <- build + launch, scale 2.0
 #   .\dev-test.ps1 -Scale 1.5
+#   .\dev-test.ps1 -DebugLog        <- also turns on RuneLite's DEBUG-level logging,
+#                                       so plugin log.debug(...) lines (e.g. Cerberus'
+#                                       CERBTIMING lines) show up in the client's console
 
 param(
-    [string]$Scale = "2.0"
+    [string]$Scale = "2.0",
+    [switch]$DebugLog
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,5 +97,7 @@ if (-not (Test-Path $java)) {
 }
 
 # --- Launch ---
-Write-Host "Launching (scale $Scale)..."
-& $java -ea "-Dsun.java2d.uiScale=$Scale" -jar $jar.FullName --developer-mode
+$launchArgs = @("--developer-mode")
+if ($DebugLog) { $launchArgs += "--debug" }
+Write-Host "Launching (scale $Scale$(if ($DebugLog) { ', debug logging on' }))..."
+& $java -ea "-Dsun.java2d.uiScale=$Scale" -jar $jar.FullName @launchArgs
