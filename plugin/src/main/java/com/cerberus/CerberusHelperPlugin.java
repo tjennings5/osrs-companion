@@ -6,6 +6,7 @@ import com.combat.HealthBar;
 import com.combat.XpDamage;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import net.runelite.api.HitsplatID;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.Prayer;
 import net.runelite.api.Skill;
 import net.runelite.api.events.AnimationChanged;
@@ -70,8 +72,12 @@ public class CerberusHelperPlugin extends Plugin
 	/** Her attack speed in ticks, from the wiki infobox and confirmed against a recorded fight. */
 	private static final int ATTACK_SPEED_TICKS = 6;
 
-	/** Game ticks per minute (0.6s each), used to turn the trip timeout config into ticks. */
-	private static final int TICKS_PER_MINUTE = 100;
+	/**
+	 * Region IDs of Cerberus' three lair rooms, computed from the room
+	 * coordinates on the wiki — (1238,1250), (1366,1250), (1302,1314) — via
+	 * regionId = (x >> 6) << 8 | (y >> 6).
+	 */
+	private static final Set<Integer> LAIR_REGIONS = Set.of(4883, 5140, 5395);
 
 	/** Cerberus' experience multiplier, from xpbonus = 15 on her wiki infobox. */
 	private static final double CERBERUS_XP_MULTIPLIER = 1.15;
@@ -164,12 +170,13 @@ public class CerberusHelperPlugin extends Plugin
 
 	private boolean holdWarned;
 
-	/** Kills since the last trip boundary; see {@link #maybeStartNewTrip()}. */
+	/** Kills since the last trip boundary; see {@link #updateLairPresence()}. */
 	@Getter
 	private int killsThisTrip;
 
-	/** Tick Cerberus was last seen alive, or -1 before the first sighting. */
-	private int lastActivityTick = -1;
+	/** Whether the player was in one of the three lair rooms as of the last tick. */
+	@Getter
+	private boolean inLair;
 
 	@Provides
 	CerberusHelperConfig provideConfig(ConfigManager configManager)
@@ -240,28 +247,30 @@ public class CerberusHelperPlugin extends Plugin
 		if (isCerberus(event.getNpc()))
 		{
 			cerberus = event.getNpc();
-			maybeStartNewTrip();
 			resetCounters();
 			log.debug("Cerberus spawned (id {}) - tracking", event.getNpc().getId());
 		}
 	}
 
 	/**
-	 * Starts a fresh trip's kill count if Cerberus has sat unfought for longer
-	 * than the configured timeout — the closest proxy this plugin has for "you
-	 * went and banked", since it never tracks the player's position or the
-	 * instance itself.
+	 * Resets the trip's kill count the moment the player walks into one of the
+	 * three lair rooms from outside all of them — i.e. actually entering the
+	 * dungeon, as opposed to continuing to fight inside a room they never left.
+	 *
+	 * Runs every tick regardless of whether Cerberus is currently being tracked,
+	 * since the room (and the region transition) exists before she is ever
+	 * engaged.
 	 */
-	private void maybeStartNewTrip()
+	private void updateLairPresence()
 	{
-		int tick = client.getTickCount();
-		int timeoutTicks = config.tripTimeoutMinutes() * TICKS_PER_MINUTE;
-		if (lastActivityTick >= 0 && tick - lastActivityTick > timeoutTicks)
+		Player player = client.getLocalPlayer();
+		boolean nowInLair = player != null && LAIR_REGIONS.contains(player.getWorldLocation().getRegionID());
+		if (nowInLair && !inLair)
 		{
-			log.debug("New Cerberus trip: idle for {} ticks (timeout {})", tick - lastActivityTick, timeoutTicks);
+			log.debug("Entered Cerberus' lair - starting a new trip");
 			killsThisTrip = 0;
 		}
-		lastActivityTick = tick;
+		inLair = nowInLair;
 	}
 
 	@Subscribe
@@ -276,12 +285,13 @@ public class CerberusHelperPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick tick)
 	{
+		updateLairPresence();
+
 		if (cerberus == null)
 		{
 			return;
 		}
 
-		lastActivityTick = client.getTickCount();
 		reconcileWithHealthBar();
 		estimatedMaxHit = estimateMaxHit();
 
