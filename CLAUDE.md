@@ -15,6 +15,21 @@ Releases: `gh release create` via `build-package.ps1 -Publish`
 
 ---
 
+## git push / gh from a Claude Code WSL session
+
+The Bash tool's default shell resolves `git` to `/usr/bin/git` (native Linux git) and has no `gh` on PATH. Neither has any GitHub credentials configured — `git push` fails with `could not read Username for 'https://github.com'`, and plain `gh` is "command not found".
+
+The actual GitHub auth lives in Windows: `gh.exe` is logged in (`tjennings5`) via Windows Credential Manager, and Windows `git.exe` uses Git Credential Manager (`credential.helper=manager`) wired to that same login. So for any `git push` or `gh` command, call the Windows binaries explicitly instead of the bare `git`/`gh` commands:
+
+```bash
+"/mnt/c/Program Files/Git/cmd/git.exe" push --set-upstream origin <branch>
+"/mnt/c/Program Files/GitHub CLI/gh.exe" pr create --title "..." --body "..."
+```
+
+Run these from the repo directory as normal (the `/mnt/c/...` path already works as the cwd) — only the binary invoked needs the full Windows path. All read-only git operations (`status`, `diff`, `log`, `commit`, local `fetch` on a public repo) work fine with the plain Linux `git`; this only matters for anything that needs to authenticate to GitHub (`push`, `gh pr create`, `gh release create`, etc.).
+
+---
+
 ## Directory structure
 
 ```
