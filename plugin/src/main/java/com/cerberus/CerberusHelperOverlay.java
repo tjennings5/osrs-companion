@@ -36,8 +36,29 @@ class CerberusHelperOverlay extends OverlayPanel
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (!config.showOverlay() || !plugin.isFightActive())
+		if (!config.showOverlay())
 		{
+			return null;
+		}
+
+		if (!plugin.isFightActive())
+		{
+			// Between kills - no attack/hp data to show, but the trip count is the
+			// one thing worth checking while deciding whether to keep going or bank,
+			// so it stays up as long as you're still standing in the lair.
+			if (config.showKillCount() && plugin.isInLair())
+			{
+				panelComponent.getChildren().add(TitleComponent.builder()
+					.text("Cerberus")
+					.color(TRIPLE)
+					.build());
+				panelComponent.getChildren().add(LineComponent.builder()
+					.left("Kills this trip")
+					.right(Integer.toString(plugin.getKillsThisTrip()))
+					.build());
+				panelComponent.setPreferredSize(new Dimension(160, 0));
+				return super.render(graphics);
+			}
 			return null;
 		}
 
