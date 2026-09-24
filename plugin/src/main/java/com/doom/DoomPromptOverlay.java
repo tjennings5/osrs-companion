@@ -37,6 +37,7 @@ class DoomPromptOverlay extends Overlay
 	private static final Color BURROW = new Color(240, 210, 90);
 	private static final Color SWAP = new Color(235, 235, 235);
 	private static final Color WARN = new Color(255, 140, 60);
+	private static final Color OK = new Color(120, 230, 120);
 	private static final Color RING = new Color(255, 150, 60, 200);
 	private static final Color PATH_FILL = new Color(240, 210, 90, 60);
 	private static final Color PATH_EDGE = new Color(240, 210, 90, 200);
@@ -116,7 +117,8 @@ class DoomPromptOverlay extends Overlay
 			AttackStyle rock = tracker.getRockCallout(tick);
 			if (rock != null)
 			{
-				prompts.add(new Prompt(rock.getLabel() + " ROCK", rock.getColor()));
+				boolean stomp = config.rockStompWarning() && tracker.isRockDuringShockwave(tick);
+				prompts.add(new Prompt(rock.getLabel() + " ROCK" + (stomp ? " + STOMP" : ""), rock.getColor()));
 			}
 		}
 
@@ -152,6 +154,11 @@ class DoomPromptOverlay extends Overlay
 			{
 				prompts.add(new Prompt("BOW BACK  " + left, SWAP));
 			}
+		}
+
+		if (config.lastWavePrompt() && tracker.isShockwavePending(tick) && tracker.isEarthenShieldMade())
+		{
+			prompts.add(new Prompt("LAST WAVE  " + tracker.ticksUntilLastWave(tick), OK));
 		}
 
 		if (config.shockwavePrompt() && tracker.isShockwavePending(tick) && !tracker.isEarthenShieldMade())
