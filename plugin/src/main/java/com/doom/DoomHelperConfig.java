@@ -176,12 +176,25 @@ public interface DoomHelperConfig extends Config
 		return 25;
 	}
 
+	@Range(min = 0, max = 200)
+	@ConfigItem(
+		keyName = "promptRaise",
+		name = "Prompt height",
+		description = "How far above your head the prompts sit, in pixels. The default clears the overhead prayer icon.",
+		position = 13,
+		section = PROMPTS
+	)
+	default int promptRaise()
+	{
+		return 45;
+	}
+
 	@Range(min = 12, max = 40)
 	@ConfigItem(
 		keyName = "fontSize",
 		name = "Prompt size",
 		description = "Font size of the prompts above your character.",
-		position = 13,
+		position = 14,
 		section = PROMPTS
 	)
 	default int fontSize()
