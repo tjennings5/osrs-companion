@@ -24,6 +24,7 @@ import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Prayer;
 import net.runelite.api.Projectile;
+import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
@@ -693,6 +694,11 @@ public class DoomHelperPlugin extends Plugin
 	boolean isHalberdEquipped()
 	{
 		return getWeaponName().toLowerCase().contains("halberd");
+	}
+
+	int getPrayerPoints()
+	{
+		return client.getBoostedSkillLevel(Skill.PRAYER);
 	}
 
 	int getSpecPercent()
