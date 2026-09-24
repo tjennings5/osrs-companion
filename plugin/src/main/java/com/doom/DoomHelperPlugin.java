@@ -447,6 +447,12 @@ public class DoomHelperPlugin extends Plugin
 	@Subscribe
 	public void onNpcDespawned(NpcDespawned event)
 	{
+		// The boss leaving ends everything tied to it. Needed on top of the
+		// DESPAWN animation: a boss killed while burrowed leaves without it.
+		if (DoomIds.BOSS_FORMS.contains(event.getNpc().getId()))
+		{
+			tracker.resetDelve();
+		}
 		if (recorder.isOpen())
 		{
 			rec("NPC_DESPAWN " + describeNpc(event.getNpc()));
@@ -582,9 +588,17 @@ public class DoomHelperPlugin extends Plugin
 		if (event.getType() == ChatMessageType.GAMEMESSAGE)
 		{
 			Matcher m = DELVE_MESSAGE.matcher(Text.removeTags(event.getMessage()));
-			if (m.find() && !event.getMessage().contains("duration"))
+			if (m.find())
 			{
-				tracker.onDelveLevel(Integer.parseInt(m.group(1)));
+				if (event.getMessage().contains("duration"))
+				{
+					// Delve cleared; the boss is dead even if it hasn't despawned yet.
+					tracker.resetDelve();
+				}
+				else
+				{
+					tracker.onDelveLevel(Integer.parseInt(m.group(1)));
+				}
 			}
 		}
 		if (recorder.isOpen() && GAME_CHAT.contains(event.getType()))
