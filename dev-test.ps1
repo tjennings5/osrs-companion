@@ -73,7 +73,7 @@ if (Test-Path $configPath) {
     if (-not [string]::IsNullOrEmpty($content)) {
         foreach ($key in @('osrsmcpbridgeplugin', 'cerberushelperplugin', 'araxxorhelperplugin',
                            'drophighlighterplugin', 'kalphiteflinchplugin', 'farmrunplugin',
-                           'sailingsteeringplugin')) {
+                           'sailingsteeringplugin', 'spawntimerplugin', 'doomhelperplugin')) {
             if ($content -match "runelite\.$key=") {
                 $content = $content -replace "runelite\.$key=\w+", "runelite.$key=true"
             } else {
