@@ -62,13 +62,15 @@ class DoomTracker
 	private static final int SHOCKWAVE_HIT_TICKS = 21;
 
 	/**
-	 * Aim for the earthen shield to exist this many ticks before the first
-	 * shockwave. A shield made early dissolves once it reaches its destination,
-	 * so the target is "just in time". In recordings every stomp that got
-	 * through followed a second orb broken at +10 to +12, every clean one at
-	 * +12 to +14; the latest clean one (click +14, shield +18) sets this.
+	 * The shield has to exist this many ticks before the first shockwave's
+	 * damage. The countdown's zero is meant to be the true last click, not a
+	 * safe one: a shield made early dissolves once it reaches its destination,
+	 * which is what let stomps through in recordings (second orb broken at +10
+	 * to +12). One tick - up on the tick before the damage - is the estimate;
+	 * the latest clean click recorded so far is +14, two ticks earlier than
+	 * this gives at normal range, so the next recordings confirm or move it.
 	 */
-	private static final int SHIELD_SLACK_TICKS = 3;
+	private static final int SHIELD_SLACK_TICKS = 1;
 
 	/**
 	 * From clicking an orb to the shield appearing, beyond the arrow's own
