@@ -43,21 +43,18 @@ class DoomTracker
 	/**
 	 * The shield has to exist this many ticks before the first shockwave's
 	 * damage. The countdown's zero is meant to be the true last click, not a
-	 * safe one: a shield made early dissolves once it reaches its destination,
-	 * which is what let stomps through in recordings (second orb broken at +10
-	 * to +12). One tick - up on the tick before the damage - is the estimate;
-	 * the latest clean click recorded so far is +14, two ticks earlier than
-	 * this gives at normal range, so the next recordings confirm or move it.
+	 * safe one, since a shield made early dissolves once it reaches its
+	 * destination. Recorded boundary: a shield up at +19 blocked the +21 wave,
+	 * one up at +20 did not (the player took 32).
 	 */
-	private static final int SHIELD_SLACK_TICKS = 1;
+	private static final int SHIELD_SLACK_TICKS = 2;
 
 	/**
 	 * From clicking an orb to the shield appearing, beyond the arrow's own
-	 * hit delay: one tick for the click to be processed and about one more
-	 * for the shield to spawn after the hit. Fitted to recordings, where it
-	 * never came out later than this.
+	 * hit delay. Late clicks in recordings took hit delay + 3 (click +15,
+	 * shield +20; click +14, shield +19), so this is the worst case seen.
 	 */
-	private static final int CLICK_TO_SHIELD_EXTRA_TICKS = 2;
+	private static final int CLICK_TO_SHIELD_EXTRA_TICKS = 3;
 
 	/**
 	 * A Rock Throw's follow-up projectiles land from +13 to +16 after the rock
@@ -68,11 +65,13 @@ class DoomTracker
 
 	/**
 	 * Car phase, from the delve 5 and 6 recordings: the boss starts moving 3
-	 * ticks after its eye appears, arrives (and at delve 6+ slams) at +6, and
-	 * the slam's damage lands at +12.
+	 * ticks after its eye appears and arrives at +6. At delve 6+ it slams on
+	 * arrival - or at +3 if the eye is under it already and it doesn't move -
+	 * and the slam's damage lands 6 ticks after the slam animation.
 	 */
 	private static final int EYE_TO_ARRIVAL_TICKS = 6;
-	private static final int EYE_TO_SLAM_DAMAGE_TICKS = 12;
+	private static final int EYE_TO_SLAM_STATIONARY_TICKS = 3;
+	private static final int SLAM_ANIM_TO_DAMAGE_TICKS = 6;
 
 	/** Car slams start at delve 6; delve 5's car phase only zooms. */
 	private static final int FIRST_SLAM_DELVE = 6;
@@ -112,6 +111,9 @@ class DoomTracker
 
 	private int eyeTick = -1;
 
+	/** Tick the current car slam's damage lands: estimated from the eye, then exact once the slam starts. */
+	private int slamDamageTick = -1;
+
 	/** Where the burrowed boss is headed (its centre ends up on the eye), and where it set off from. */
 	@Getter
 	private LocalPoint eyeLocation;
@@ -136,6 +138,7 @@ class DoomTracker
 		shockwaveSpawnTick = -1;
 		earthenShieldMade = false;
 		eyeTick = -1;
+		slamDamageTick = -1;
 		eyeLocation = null;
 		chargeStart = null;
 	}
@@ -185,6 +188,9 @@ class DoomTracker
 				}
 				meleeCharging = false;
 				break;
+			case AnimationID.DOM_BURROWED_EXPLOSION:
+				slamDamageTick = tick + SLAM_ANIM_TO_DAMAGE_TICKS;
+				break;
 			case AnimationID.DOM_DESPAWN:
 				resetDelve();
 				break;
@@ -216,6 +222,9 @@ class DoomTracker
 		eyeTick = tick;
 		eyeLocation = eye;
 		chargeStart = from;
+		boolean stationary = eye != null && from != null && eye.getX() == from.getX() && eye.getY() == from.getY();
+		slamDamageTick = tick + (stationary ? EYE_TO_SLAM_STATIONARY_TICKS : EYE_TO_ARRIVAL_TICKS)
+			+ SLAM_ANIM_TO_DAMAGE_TICKS;
 	}
 
 	/** True while the burrowed boss is about to charge or charging along its path. */
@@ -227,11 +236,11 @@ class DoomTracker
 	/** Ticks until the current car slam's damage, or -1 if none is coming. */
 	int ticksUntilSlam(int tick)
 	{
-		if (eyeTick < 0 || delve < FIRST_SLAM_DELVE)
+		if (slamDamageTick < 0 || delve < FIRST_SLAM_DELVE)
 		{
 			return -1;
 		}
-		int left = eyeTick + EYE_TO_SLAM_DAMAGE_TICKS - tick;
+		int left = slamDamageTick - tick;
 		return left >= 0 ? left : -1;
 	}
 
