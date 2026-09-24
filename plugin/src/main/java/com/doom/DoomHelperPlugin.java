@@ -65,8 +65,10 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.Text;
 
 /**
- * Doom of Mokhaiotl helper: calls the prayer for each incoming projectile,
- * says how to interrupt each beam charge, and times shockwaves. Fight state
+ * Doom of Mokhaiotl helper: names each Rock Throw's type, says how to
+ * interrupt each beam charge, times shockwaves and marks the car phase.
+ * It deliberately never tells you which prayer to use - prayer-switching
+ * helpers are against Jagex's third-party client rules. Fight state
  * lives in {@link DoomTracker}; this class feeds it from game events.
  *
  * It can also record every relevant game event to a log file (see
@@ -116,9 +118,6 @@ public class DoomHelperPlugin extends Plugin
 	@Inject
 	private DoomPromptOverlay promptOverlay;
 
-	@Inject
-	private DoomPrayerOverlay prayerOverlay;
-
 	private final DoomRecorder recorder = new DoomRecorder();
 
 	@Getter
@@ -158,7 +157,6 @@ public class DoomHelperPlugin extends Plugin
 	{
 		overlayManager.add(overlay);
 		overlayManager.add(promptOverlay);
-		overlayManager.add(prayerOverlay);
 	}
 
 	@Override
@@ -166,7 +164,6 @@ public class DoomHelperPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		overlayManager.remove(promptOverlay);
-		overlayManager.remove(prayerOverlay);
 		leaveFight("plugin stopped");
 	}
 
@@ -364,11 +361,7 @@ public class DoomHelperPlugin extends Plugin
 		}
 	}
 
-	/**
-	 * Picks up projectiles created since the last tick. Their landing tick is
-	 * the remaining flight time rounded up: a projectile seen with 6.8 ticks
-	 * left hits 7 ticks later in recordings.
-	 */
+	/** Picks up projectiles created since the last tick: Rock Throw launches, and everything for the recorder. */
 	private void scanProjectiles(Player me, int tick)
 	{
 		Set<Projectile> live = new HashSet<>();
@@ -381,12 +374,6 @@ public class DoomHelperPlugin extends Plugin
 				continue;
 			}
 
-			int landTick = tick + (int) Math.ceil((p.getEndCycle() - now) / 30.0);
-			AttackStyle style = DoomIds.standardProjectileStyle(p.getId());
-			if (style != null && p.getTargetActor() == me)
-			{
-				tracker.onStandardProjectile(style, landTick);
-			}
 			AttackStyle rock = DoomIds.rockLaunchStyle(p.getId());
 			if (rock != null)
 			{

@@ -3,7 +3,6 @@ package com.doom;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
-import java.util.List;
 import javax.inject.Inject;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -11,7 +10,7 @@ import net.runelite.client.ui.overlay.components.LineComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
 /**
- * Info panel: delve, phase, attacks in flight and the shockwave timer.
+ * Info panel: delve, phase and the shockwave timer.
  * Static like the Cerberus panel - the prompts above the player carry the
  * urgency, this answers "what's coming".
  */
@@ -24,9 +23,6 @@ class DoomHelperOverlay extends OverlayPanel
 	private static final Color BURROW = new Color(230, 200, 90);
 	private static final Color WARN = new Color(255, 140, 60);
 	private static final Color OK = new Color(120, 230, 120);
-
-	/** How many in-flight attacks to list; more than this is never actionable. */
-	private static final int MAX_INCOMING = 4;
 
 	private final DoomHelperPlugin plugin;
 	private final DoomHelperConfig config;
@@ -62,18 +58,6 @@ class DoomHelperOverlay extends OverlayPanel
 			.right(phaseText(phase))
 			.rightColor(phase == DoomTracker.Phase.SHIELDED ? SHIELD : phase == DoomTracker.Phase.BURROWED ? BURROW : NORMAL)
 			.build());
-
-		List<DoomTracker.Incoming> incoming = tracker.getIncoming();
-		for (int i = 0; i < incoming.size() && i < MAX_INCOMING; i++)
-		{
-			DoomTracker.Incoming attack = incoming.get(i);
-			panelComponent.getChildren().add(LineComponent.builder()
-				.left(i == 0 ? "Incoming" : "")
-				.right(attack.getStyle().getLabel() + (attack.isPredicted() ? " (rock)" : "")
-					+ "  " + Math.max(0, attack.getLandTick() - tick))
-				.rightColor(attack.getStyle().getColor())
-				.build());
-		}
 
 		if (tracker.isShockwavePending(tick))
 		{

@@ -1,10 +1,6 @@
 package com.doom;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.gameval.AnimationID;
 
@@ -36,23 +32,6 @@ class DoomTracker
 		/** Car phase; charges constantly and any attack stops it. */
 		BURROW
 	}
-
-	@Getter
-	@RequiredArgsConstructor
-	static final class Incoming
-	{
-		private final AttackStyle style;
-		private final int landTick;
-		/** True for a Rock Throw follow-up predicted from the launch, before its real projectile exists. */
-		private final boolean predicted;
-	}
-
-	/**
-	 * Ticks from a Rock Throw launch to its first follow-up projectile landing.
-	 * The rock splits 7 ticks after launch, the follow-ups appear at +10 and
-	 * the first lands at +13 on every delve recorded so far (1-4).
-	 */
-	private static final int ROCK_FIRST_HIT_TICKS = 13;
 
 	/**
 	 * Volatile earth spawn to the first shockwave's damage. The slam animation
@@ -135,8 +114,6 @@ class DoomTracker
 	@Getter
 	private LocalPoint chargeStart;
 
-	private final List<Incoming> incoming = new ArrayList<>();
-
 	void reset()
 	{
 		delve = 1;
@@ -157,7 +134,6 @@ class DoomTracker
 		eyeTick = -1;
 		eyeLocation = null;
 		chargeStart = null;
-		incoming.clear();
 	}
 
 	void onDelveLevel(int level)
@@ -214,20 +190,10 @@ class DoomTracker
 		}
 	}
 
-	void onStandardProjectile(AttackStyle style, int landTick)
-	{
-		// The real follow-ups of a Rock Throw have arrived; drop its prediction.
-		incoming.removeIf(i -> i.isPredicted() && landTick >= i.getLandTick());
-		incoming.add(new Incoming(style, landTick, false));
-		incoming.sort(Comparator.comparingInt(Incoming::getLandTick));
-	}
-
 	void onRockLaunch(AttackStyle style, int tick)
 	{
 		rockStyle = style;
 		rockLaunchTick = tick;
-		incoming.add(new Incoming(style, tick + ROCK_FIRST_HIT_TICKS, true));
-		incoming.sort(Comparator.comparingInt(Incoming::getLandTick));
 	}
 
 	void onVolatileEarthSpawn(int tick)
@@ -272,7 +238,6 @@ class DoomTracker
 
 	void onTick(int tick)
 	{
-		incoming.removeIf(i -> i.getLandTick() < tick);
 		if (shockwaveSpawnTick >= 0 && tick > lastShockwaveTick())
 		{
 			shockwaveSpawnTick = -1;
@@ -297,25 +262,6 @@ class DoomTracker
 	AttackStyle getRockCallout(int tick)
 	{
 		return rockLaunchTick >= 0 && tick <= rockLaunchTick + ROCK_CALLOUT_TICKS ? rockStyle : null;
-	}
-
-	/** Style of the next attack to land, or null if nothing is in flight. */
-	AttackStyle getNextPrayer(int tick)
-	{
-		for (Incoming attack : incoming)
-		{
-			if (attack.getLandTick() >= tick)
-			{
-				return attack.getStyle();
-			}
-		}
-		return null;
-	}
-
-	/** Attacks still in flight, earliest landing first. */
-	List<Incoming> getIncoming()
-	{
-		return incoming;
 	}
 
 	/**
