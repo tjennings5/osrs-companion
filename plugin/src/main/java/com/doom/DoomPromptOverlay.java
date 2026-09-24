@@ -205,7 +205,9 @@ class DoomPromptOverlay extends Overlay
 				{
 					return;
 				}
-				int y = anchor.getY() - i * lineHeight;
+				// Lifted by a fixed pixel amount so the text clears the overhead prayer
+				// icon, which the game draws right where the head anchor lands.
+				int y = anchor.getY() - config.promptRaise() - i * lineHeight;
 				graphics.setColor(Color.BLACK);
 				graphics.drawString(prompt.text, anchor.getX() + 1, y + 1);
 				graphics.setColor(prompt.color);
