@@ -59,7 +59,11 @@ class DoomTracker
 	 */
 	private static final int CLICK_TO_SHIELD_EXTRA_TICKS = 2;
 
-	/** How long the rock callout stays up: its last follow-up lands by +16 in every recording. */
+	/**
+	 * A Rock Throw's follow-up projectiles land from +13 to +16 after the rock
+	 * is thrown in every recording; the callout stays up until the last one.
+	 */
+	private static final int ROCK_FIRST_HIT_TICKS = 13;
 	private static final int ROCK_CALLOUT_TICKS = 16;
 
 	/**
@@ -279,6 +283,27 @@ class DoomTracker
 		int delay = delve <= 2 ? 7 : delve <= 6 ? 6 : 5;
 		int left = lastPunishTick + delay - tick;
 		return left >= 0 ? left : -1;
+	}
+
+	/**
+	 * True if the current rock's follow-ups land while shockwaves are hitting,
+	 * so the prayer and the earthen shield both need attention at once.
+	 */
+	boolean isRockDuringShockwave(int tick)
+	{
+		if (getRockCallout(tick) == null || !isShockwavePending(tick))
+		{
+			return false;
+		}
+		int firstWave = shockwaveSpawnTick + SHOCKWAVE_HIT_TICKS;
+		return rockLaunchTick + ROCK_FIRST_HIT_TICKS <= lastShockwaveTick()
+			&& rockLaunchTick + ROCK_CALLOUT_TICKS >= firstWave;
+	}
+
+	/** Ticks until the last shockwave's damage: how long to stay in the earthen shield. */
+	int ticksUntilLastWave(int tick)
+	{
+		return lastShockwaveTick() - tick;
 	}
 
 	boolean isShockwavePending(int tick)

@@ -87,13 +87,38 @@ public interface DoomHelperConfig extends Config
 		return true;
 	}
 
+	@ConfigItem(
+		keyName = "lastWavePrompt",
+		name = "Last wave countdown",
+		description = "Once your earthen shield is up, count down to the last shockwave so you know how long to "
+			+ "stay with it: 1-2 waves at delves 1-4, 3 at 5-6, 4 at 7, 5 at 8+.",
+		position = 6,
+		section = PROMPTS
+	)
+	default boolean lastWavePrompt()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "rockStompWarning",
+		name = "Rock + stomp warning",
+		description = "Add \"+ STOMP\" to the rock callout when its follow-ups will land during the shockwaves.",
+		position = 7,
+		section = PROMPTS
+	)
+	default boolean rockStompWarning()
+	{
+		return true;
+	}
+
 	@Range(min = -3, max = 3)
 	@ConfigItem(
 		keyName = "orbTimingOffset",
 		name = "Orb countdown offset",
 		description = "Shift the orb countdown's zero. Negative if the shield comes up too late when you click on 0, "
 			+ "positive if it's up (and gone) too early.",
-		position = 6,
+		position = 8,
 		section = PROMPTS
 	)
 	default int orbTimingOffset()
@@ -106,7 +131,7 @@ public interface DoomHelperConfig extends Config
 		name = "Car phase charge path",
 		description = "When the burrowed boss' eye appears, shade the lane it will charge through and the spot it "
 			+ "lands on, so you can step out of the trample.",
-		position = 7,
+		position = 9,
 		section = PROMPTS
 	)
 	default boolean carPath()
@@ -118,7 +143,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "slamPrompt",
 		name = "Car slam countdown",
 		description = "Delve 6+: count down to each car slam's damage from the moment the eye appears.",
-		position = 8,
+		position = 10,
 		section = PROMPTS
 	)
 	default boolean slamPrompt()
@@ -131,7 +156,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "fontSize",
 		name = "Prompt size",
 		description = "Font size of the prompts above your character.",
-		position = 9,
+		position = 11,
 		section = PROMPTS
 	)
 	default int fontSize()
