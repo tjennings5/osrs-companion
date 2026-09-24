@@ -7,7 +7,10 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.ActorSpotAnim;
@@ -49,18 +52,23 @@ import net.runelite.api.events.WallObjectSpawned;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.gameval.InventoryID;
+import net.runelite.api.gameval.NpcID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.Text;
 
 /**
- * Doom of Mokhaiotl helper. Currently recording-only: while a Doom trip is in
- * progress it writes every relevant game event to a log file (see
- * {@link DoomRecorder}) so the prayer, beam-charge and car-phase helpers can
- * be built from real timings rather than wiki estimates.
+ * Doom of Mokhaiotl helper: calls the prayer for each incoming projectile,
+ * says how to interrupt each beam charge, and times shockwaves. Fight state
+ * lives in {@link DoomTracker}; this class feeds it from game events.
+ *
+ * It can also record every relevant game event to a log file (see
+ * {@link DoomRecorder}); the tracker's timings were built from those.
  *
  * Display-only, like the other helpers here: it reads game state and never
  * sends input or acts for the player.
@@ -71,7 +79,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @Slf4j
 @PluginDescriptor(
 	name = "Doom Helper",
-	description = "Doom of Mokhaiotl helper - currently records fight events for building timings",
+	description = "Prayer calls, beam-charge prompts and shockwave timer for the Doom of Mokhaiotl",
 	tags = {"doom", "mokhaiotl", "delve", "boss", "varlamore", "prayer"}
 )
 public class DoomHelperPlugin extends Plugin
@@ -103,9 +111,25 @@ public class DoomHelperPlugin extends Plugin
 	@Inject
 	private DoomHelperOverlay overlay;
 
+	@Inject
+	private DoomPromptOverlay promptOverlay;
+
 	private final DoomRecorder recorder = new DoomRecorder();
 
-	/** Template (non-instance) region the fight was first seen in; presence there keeps the recording open. */
+	@Getter
+	private final DoomTracker tracker = new DoomTracker();
+
+	/**
+	 * Delve announcement. It arrives as "@mes_hl_red@Delve level: 3" - the
+	 * colour code isn't a tag, so this matches anywhere in the line. The
+	 * end-of-delve summary also starts "Delve level:" but contains "duration".
+	 */
+	private static final Pattern DELVE_MESSAGE = Pattern.compile("Delve level: (\\d+)");
+
+	@Getter
+	private boolean inFight;
+
+	/** Template (non-instance) region the fight was first seen in; presence there keeps the fight active. */
 	private int arenaRegion = -1;
 	private int lastInArenaTick;
 
@@ -128,13 +152,15 @@ public class DoomHelperPlugin extends Plugin
 	protected void startUp()
 	{
 		overlayManager.add(overlay);
+		overlayManager.add(promptOverlay);
 	}
 
 	@Override
 	protected void shutDown()
 	{
 		overlayManager.remove(overlay);
-		stopRecording("plugin stopped");
+		overlayManager.remove(promptOverlay);
+		leaveFight("plugin stopped");
 	}
 
 	boolean isRecording()
@@ -167,7 +193,7 @@ public class DoomHelperPlugin extends Plugin
 		}
 		if (state == GameState.LOGIN_SCREEN || state == GameState.HOPPING)
 		{
-			stopRecording("logged out");
+			leaveFight("logged out");
 		}
 	}
 
@@ -199,13 +225,13 @@ public class DoomHelperPlugin extends Plugin
 		WorldPoint myTemplatePos = templatePoint(me.getLocalLocation());
 		int myRegion = myTemplatePos == null ? -1 : myTemplatePos.getRegionID();
 
-		if (!recorder.isOpen())
+		if (!inFight)
 		{
-			if (!fightNpcPresent || !config.recordFights())
+			if (!fightNpcPresent)
 			{
 				return;
 			}
-			startRecording(me, myRegion);
+			enterFight(myRegion, boss);
 		}
 
 		if (fightNpcPresent || myRegion == arenaRegion)
@@ -214,22 +240,51 @@ public class DoomHelperPlugin extends Plugin
 		}
 		else if (tick - lastInArenaTick > LEAVE_GRACE_TICKS)
 		{
-			stopRecording("left the arena");
+			leaveFight("left the arena");
 			return;
 		}
 
-		recordPlayerState(me, myTemplatePos);
-		recordBossState(boss);
-		recordNewProjectiles(me);
-		rec("TICK");
-		recorder.flush();
+		if (!recorder.isOpen() && config.recordFights())
+		{
+			startRecording(me, myRegion);
+		}
+
+		tracker.onTick(tick);
+		scanProjectiles(me, tick);
+
+		if (recorder.isOpen())
+		{
+			recordPlayerState(me, myTemplatePos);
+			recordBossState(boss);
+			rec("TICK");
+			recorder.flush();
+		}
+	}
+
+	private void enterFight(int region, NPC boss)
+	{
+		inFight = true;
+		arenaRegion = region;
+		lastInArenaTick = client.getTickCount();
+		seenProjectiles.clear();
+		tracker.resetDelve();
+		if (boss != null)
+		{
+			tracker.onBossForm(boss.getId());
+		}
+	}
+
+	private void leaveFight(String reason)
+	{
+		stopRecording(reason);
+		inFight = false;
+		arenaRegion = -1;
+		seenProjectiles.clear();
+		tracker.reset();
 	}
 
 	private void startRecording(Player me, int region)
 	{
-		arenaRegion = region;
-		lastInArenaTick = client.getTickCount();
-		seenProjectiles.clear();
 		lastPlayerPos = null;
 		lastPrayers = null;
 		lastBossState = null;
@@ -254,8 +309,6 @@ public class DoomHelperPlugin extends Plugin
 		}
 		rec("STOP reason=" + reason);
 		recorder.close();
-		arenaRegion = -1;
-		seenProjectiles.clear();
 	}
 
 	// ---- per-tick state snapshots (logged only when they change) ----
@@ -302,7 +355,12 @@ public class DoomHelperPlugin extends Plugin
 		}
 	}
 
-	private void recordNewProjectiles(Player me)
+	/**
+	 * Picks up projectiles created since the last tick. Their landing tick is
+	 * the remaining flight time rounded up: a projectile seen with 6.8 ticks
+	 * left hits 7 ticks later in recordings.
+	 */
+	private void scanProjectiles(Player me, int tick)
 	{
 		Set<Projectile> live = new HashSet<>();
 		int now = client.getGameCycle();
@@ -310,6 +368,23 @@ public class DoomHelperPlugin extends Plugin
 		{
 			live.add(p);
 			if (!seenProjectiles.add(p))
+			{
+				continue;
+			}
+
+			int landTick = tick + (int) Math.ceil((p.getEndCycle() - now) / 30.0);
+			AttackStyle style = DoomIds.standardProjectileStyle(p.getId());
+			if (style != null && p.getTargetActor() == me)
+			{
+				tracker.onStandardProjectile(style, landTick);
+			}
+			AttackStyle rock = DoomIds.rockLaunchStyle(p.getId());
+			if (rock != null)
+			{
+				tracker.onRockLaunch(rock, tick);
+			}
+
+			if (!recorder.isOpen())
 			{
 				continue;
 			}
@@ -329,9 +404,27 @@ public class DoomHelperPlugin extends Plugin
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event)
 	{
+		trackNpc(event.getNpc());
 		if (recorder.isOpen())
 		{
 			rec("NPC_SPAWN " + describeNpc(event.getNpc()));
+		}
+	}
+
+	private void trackNpc(NPC npc)
+	{
+		int id = npc.getId();
+		if (DoomIds.BOSS_FORMS.contains(id))
+		{
+			tracker.onBossForm(id);
+		}
+		else if (id == NpcID.DOM_SHOCKWAVE_PATH_NODE)
+		{
+			tracker.onVolatileEarthSpawn(client.getTickCount());
+		}
+		else if (id == NpcID.DOM_SHOCKWAVE_SHIELD)
+		{
+			tracker.onEarthenShieldSpawn();
 		}
 	}
 
@@ -347,6 +440,7 @@ public class DoomHelperPlugin extends Plugin
 	@Subscribe
 	public void onNpcChanged(NpcChanged event)
 	{
+		trackNpc(event.getNpc());
 		if (recorder.isOpen())
 		{
 			rec("NPC_CHANGE old=" + event.getOld().getId() + " " + describeNpc(event.getNpc()));
@@ -356,12 +450,16 @@ public class DoomHelperPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
+		Actor actor = event.getActor();
+		int anim = actor.getAnimation();
+		if (actor instanceof NPC && DoomIds.BOSS_FORMS.contains(((NPC) actor).getId()))
+		{
+			tracker.onBossAnimation(anim, client.getTickCount());
+		}
 		if (!recorder.isOpen())
 		{
 			return;
 		}
-		Actor actor = event.getActor();
-		int anim = actor.getAnimation();
 		if (actor == client.getLocalPlayer())
 		{
 			rec("ANIM who=me id=" + anim);
@@ -455,6 +553,14 @@ public class DoomHelperPlugin extends Plugin
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
+		if (event.getType() == ChatMessageType.GAMEMESSAGE)
+		{
+			Matcher m = DELVE_MESSAGE.matcher(Text.removeTags(event.getMessage()));
+			if (m.find() && !event.getMessage().contains("duration"))
+			{
+				tracker.onDelveLevel(Integer.parseInt(m.group(1)));
+			}
+		}
 		if (recorder.isOpen() && GAME_CHAT.contains(event.getType()))
 		{
 			rec("CHAT type=" + event.getType() + " msg=" + event.getMessage().replace('\n', ' '));
@@ -535,6 +641,60 @@ public class DoomHelperPlugin extends Plugin
 		}
 	}
 
+	// ---- player state for the overlays ----
+
+	String getWeaponName()
+	{
+		ItemContainer worn = client.getItemContainer(InventoryID.WORN);
+		Item weapon = worn == null ? null : worn.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
+		return weapon == null || weapon.getId() <= 0 ? "" : client.getItemDefinition(weapon.getId()).getName();
+	}
+
+	boolean isHalberdEquipped()
+	{
+		return getWeaponName().toLowerCase().contains("halberd");
+	}
+
+	int getSpecPercent()
+	{
+		return client.getVarpValue(VarPlayerID.SA_ENERGY) / 10;
+	}
+
+	/** The protection prayer currently up, or null. */
+	AttackStyle getActiveProtection()
+	{
+		for (AttackStyle style : AttackStyle.values())
+		{
+			if (client.isPrayerActive(style.getPrayer()))
+			{
+				return style;
+			}
+		}
+		return null;
+	}
+
+	NPC findBoss()
+	{
+		WorldView wv = client.getTopLevelWorldView();
+		if (wv == null)
+		{
+			return null;
+		}
+		for (NPC npc : wv.npcs())
+		{
+			if (DoomIds.BOSS_FORMS.contains(npc.getId()))
+			{
+				return npc;
+			}
+		}
+		return null;
+	}
+
+	int getTick()
+	{
+		return client.getTickCount();
+	}
+
 	// ---- formatting helpers ----
 
 	private void rec(String line)
@@ -597,7 +757,7 @@ public class DoomHelperPlugin extends Plugin
 		{
 			return "id=-1 name=none";
 		}
-		return "id=" + weapon.getId() + " name=" + client.getItemDefinition(weapon.getId()).getName().replace(' ', '_');
+		return "id=" + weapon.getId() + " name=" + getWeaponName().replace(' ', '_');
 	}
 
 	private static String orDash(String s)
