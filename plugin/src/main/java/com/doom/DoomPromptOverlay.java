@@ -26,14 +26,14 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  * Prompts above the player's head, plus floor markings: the halberd range
  * ring and the car phase charge lane.
  *
- * Only shows what needs doing right now: a prayer call only when the prayer
- * is wrong, a charge call only while the boss is charging. No flashing, same
- * as the other helpers here.
+ * Only shows what needs doing right now: the rock type while its follow-ups
+ * are in the air, a charge call only while the boss is charging. Prayers are
+ * called on the prayer tab instead ({@link DoomPrayerOverlay}). No flashing,
+ * same as the other helpers here.
  */
 class DoomPromptOverlay extends Overlay
 {
 	private static final Color PUNISH = new Color(255, 150, 60);
-	private static final Color SHIELD = new Color(120, 160, 255);
 	private static final Color BURROW = new Color(240, 210, 90);
 	private static final Color SWAP = new Color(235, 235, 235);
 	private static final Color WARN = new Color(255, 140, 60);
@@ -47,9 +47,6 @@ class DoomPromptOverlay extends Overlay
 
 	/** Crystal halberd's special attack cost. */
 	private static final int HALBERD_SPEC_COST = 30;
-
-	/** Start nagging about the earthen shield this many ticks before the shockwave. */
-	private static final int SHIELD_REMINDER_TICKS = 10;
 
 	/**
 	 * Halberd ring half-width in tiles from the boss' centre tile. The boss is
@@ -114,20 +111,12 @@ class DoomPromptOverlay extends Overlay
 		int tick = plugin.getTick();
 		List<Prompt> prompts = new ArrayList<>(3);
 
-		if (config.prayerPrompt())
+		if (config.rockCallout())
 		{
-			for (DoomTracker.Incoming next : tracker.getIncoming())
+			AttackStyle rock = tracker.getRockCallout(tick);
+			if (rock != null)
 			{
-				if (next.getLandTick() < tick)
-				{
-					continue;
-				}
-				if (plugin.getActiveProtection() != next.getStyle())
-				{
-					prompts.add(new Prompt("PRAY " + next.getStyle().getLabel() + "  " + (next.getLandTick() - tick),
-						next.getStyle().getColor()));
-				}
-				break;
+				prompts.add(new Prompt(rock.getLabel() + " ROCK", rock.getColor()));
 			}
 		}
 
@@ -148,9 +137,6 @@ class DoomPromptOverlay extends Overlay
 					prompts.add(new Prompt(plugin.getSpecPercent() >= HALBERD_SPEC_COST
 						? "PUNISH: HALBERD SPEC" : "PUNISH: HALBERD", PUNISH));
 					break;
-				case SHIELD:
-					prompts.add(new Prompt("HIT THE SHIELD", SHIELD));
-					break;
 				case BURROW:
 					prompts.add(new Prompt("ANY ATTACK", BURROW));
 					break;
@@ -170,10 +156,10 @@ class DoomPromptOverlay extends Overlay
 
 		if (config.shockwavePrompt() && tracker.isShockwavePending(tick) && !tracker.isEarthenShieldMade())
 		{
-			int left = tracker.ticksUntilShockwave(tick);
-			if (left > 0 && left <= SHIELD_REMINDER_TICKS)
+			int left = tracker.ticksToBreakOrb(tick, plugin.getOrbHitDelay(), config.orbTimingOffset());
+			if (left >= 0)
 			{
-				prompts.add(new Prompt("MAKE A SHIELD  " + left, WARN));
+				prompts.add(new Prompt("BREAK 2ND ORB  " + left, WARN));
 			}
 		}
 

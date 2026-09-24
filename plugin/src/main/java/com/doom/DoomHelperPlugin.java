@@ -116,6 +116,9 @@ public class DoomHelperPlugin extends Plugin
 	@Inject
 	private DoomPromptOverlay promptOverlay;
 
+	@Inject
+	private DoomPrayerOverlay prayerOverlay;
+
 	private final DoomRecorder recorder = new DoomRecorder();
 
 	@Getter
@@ -155,6 +158,7 @@ public class DoomHelperPlugin extends Plugin
 	{
 		overlayManager.add(overlay);
 		overlayManager.add(promptOverlay);
+		overlayManager.add(prayerOverlay);
 	}
 
 	@Override
@@ -162,6 +166,7 @@ public class DoomHelperPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		overlayManager.remove(promptOverlay);
+		overlayManager.remove(prayerOverlay);
 		leaveFight("plugin stopped");
 	}
 
@@ -694,19 +699,6 @@ public class DoomHelperPlugin extends Plugin
 		return client.getVarpValue(VarPlayerID.SA_ENERGY) / 10;
 	}
 
-	/** The protection prayer currently up, or null. */
-	AttackStyle getActiveProtection()
-	{
-		for (AttackStyle style : AttackStyle.values())
-		{
-			if (client.isPrayerActive(style.getPrayer()))
-			{
-				return style;
-			}
-		}
-		return null;
-	}
-
 	NPC findBoss()
 	{
 		WorldView wv = client.getTopLevelWorldView();
@@ -722,6 +714,31 @@ public class DoomHelperPlugin extends Plugin
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Ticks from firing the bow until the arrow lands on the nearest volatile
+	 * earth: the standard ranged hit delay, 1 + (3 + distance) / 6. Nearest is
+	 * a guess at which orb is shot second, but players break close ones.
+	 */
+	int getOrbHitDelay()
+	{
+		Player me = client.getLocalPlayer();
+		WorldView wv = client.getTopLevelWorldView();
+		if (me == null || wv == null)
+		{
+			return 2;
+		}
+		WorldPoint mine = me.getWorldLocation();
+		int nearest = Integer.MAX_VALUE;
+		for (NPC npc : wv.npcs())
+		{
+			if (npc.getId() == NpcID.DOM_SHOCKWAVE_PATH_NODE)
+			{
+				nearest = Math.min(nearest, mine.distanceTo(npc.getWorldLocation()));
+			}
+		}
+		return nearest == Integer.MAX_VALUE ? 2 : 1 + (3 + nearest) / 6;
 	}
 
 	int getTick()
