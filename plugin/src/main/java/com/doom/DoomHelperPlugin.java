@@ -119,6 +119,9 @@ public class DoomHelperPlugin extends Plugin
 	@Inject
 	private DoomPromptOverlay promptOverlay;
 
+	@Inject
+	private DoomAlertOverlay alertOverlay;
+
 	private final DoomRecorder recorder = new DoomRecorder();
 
 	@Getter
@@ -158,6 +161,7 @@ public class DoomHelperPlugin extends Plugin
 	{
 		overlayManager.add(overlay);
 		overlayManager.add(promptOverlay);
+		overlayManager.add(alertOverlay);
 	}
 
 	@Override
@@ -165,6 +169,7 @@ public class DoomHelperPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		overlayManager.remove(promptOverlay);
+		overlayManager.remove(alertOverlay);
 		leaveFight("plugin stopped");
 	}
 
