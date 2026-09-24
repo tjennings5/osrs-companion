@@ -55,11 +55,31 @@ class DoomTracker
 	private static final int ROCK_FIRST_HIT_TICKS = 13;
 
 	/**
-	 * Volatile earth spawn to the boss' shockwave slam animation: +19 in every
-	 * recorded delve (1-5). Damage follows a tick or two later; counting to the
-	 * animation keeps the timer on the safe side.
+	 * Volatile earth spawn to the first shockwave's damage. The slam animation
+	 * starts at +19 and the shockwave graphic and damage land at +21 in every
+	 * recorded delve (1-5); later waves follow every 2 ticks.
 	 */
-	private static final int SHOCKWAVE_HIT_TICKS = 19;
+	private static final int SHOCKWAVE_HIT_TICKS = 21;
+
+	/**
+	 * Aim for the earthen shield to exist this many ticks before the first
+	 * shockwave. A shield made early dissolves once it reaches its destination,
+	 * so the target is "just in time". In recordings every stomp that got
+	 * through followed a second orb broken at +10 to +12, every clean one at
+	 * +12 to +14; the latest clean one (click +14, shield +18) sets this.
+	 */
+	private static final int SHIELD_SLACK_TICKS = 3;
+
+	/**
+	 * From clicking an orb to the shield appearing, beyond the arrow's own
+	 * hit delay: one tick for the click to be processed and about one more
+	 * for the shield to spawn after the hit. Fitted to recordings, where it
+	 * never came out later than this.
+	 */
+	private static final int CLICK_TO_SHIELD_EXTRA_TICKS = 2;
+
+	/** How long the rock callout stays up: its last follow-up lands by +16 in every recording. */
+	private static final int ROCK_CALLOUT_TICKS = 16;
 
 	/**
 	 * Car phase, from the delve 5 and 6 recordings: the boss starts moving 3
@@ -94,6 +114,9 @@ class DoomTracker
 
 	private int lastRockThrowTick = -1;
 
+	private AttackStyle rockStyle;
+	private int rockLaunchTick = -1;
+
 	/** Tick a melee charge was last interrupted, or -1. */
 	private int lastPunishTick = -1;
 
@@ -124,6 +147,8 @@ class DoomTracker
 		phase = Phase.NORMAL;
 		meleeCharging = false;
 		lastRockThrowTick = -1;
+		rockStyle = null;
+		rockLaunchTick = -1;
 		lastPunishTick = -1;
 		shockwaveSpawnTick = -1;
 		earthenShieldMade = false;
@@ -197,6 +222,8 @@ class DoomTracker
 
 	void onRockLaunch(AttackStyle style, int tick)
 	{
+		rockStyle = style;
+		rockLaunchTick = tick;
 		incoming.add(new Incoming(style, tick + ROCK_FIRST_HIT_TICKS, true));
 		incoming.sort(Comparator.comparingInt(Incoming::getLandTick));
 	}
@@ -264,6 +291,25 @@ class DoomTracker
 		}
 	}
 
+	/** Style of the rock thrown most recently, while its follow-ups are still to land; otherwise null. */
+	AttackStyle getRockCallout(int tick)
+	{
+		return rockLaunchTick >= 0 && tick <= rockLaunchTick + ROCK_CALLOUT_TICKS ? rockStyle : null;
+	}
+
+	/** Style of the next attack to land, or null if nothing is in flight. */
+	AttackStyle getNextPrayer(int tick)
+	{
+		for (Incoming attack : incoming)
+		{
+			if (attack.getLandTick() >= tick)
+			{
+				return attack.getStyle();
+			}
+		}
+		return null;
+	}
+
 	/** Attacks still in flight, earliest landing first. */
 	List<Incoming> getIncoming()
 	{
@@ -296,6 +342,18 @@ class DoomTracker
 	int ticksUntilShockwave(int tick)
 	{
 		return shockwaveSpawnTick + SHOCKWAVE_HIT_TICKS - tick;
+	}
+
+	/**
+	 * Ticks left to click the second volatile earth so the shield is up just
+	 * before the first shockwave, given the arrow's hit delay from where the
+	 * player is standing. 0 is the last tick to click; negative is too late.
+	 */
+	int ticksToBreakOrb(int tick, int hitDelay, int offset)
+	{
+		int lastClick = shockwaveSpawnTick + SHOCKWAVE_HIT_TICKS - SHIELD_SLACK_TICKS
+			- CLICK_TO_SHIELD_EXTRA_TICKS - hitDelay + offset;
+		return lastClick - tick;
 	}
 
 	/** Number of shockwaves at the current delve, from the wiki's table. */

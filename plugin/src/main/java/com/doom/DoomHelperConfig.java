@@ -26,14 +26,26 @@ public interface DoomHelperConfig extends Config
 	String RECORDING = "recording";
 
 	@ConfigItem(
-		keyName = "prayerPrompt",
-		name = "Prayer calls",
-		description = "Show which protection prayer the next projectile needs when you aren't already praying it, "
-			+ "including the Rock Throw follow-ups as soon as the rock is thrown.",
+		keyName = "prayerHighlight",
+		name = "Prayer highlight",
+		description = "Box the protection prayer in your prayer tab that the next attack to land needs. It moves the "
+			+ "moment that attack lands, including through a Rock Throw's back-to-back follow-ups.",
+		position = 0,
+		section = PROMPTS
+	)
+	default boolean prayerHighlight()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "rockCallout",
+		name = "Rock type callout",
+		description = "When the boss throws a rock, say its type above your character until its follow-ups have landed.",
 		position = 1,
 		section = PROMPTS
 	)
-	default boolean prayerPrompt()
+	default boolean rockCallout()
 	{
 		return true;
 	}
@@ -41,7 +53,7 @@ public interface DoomHelperConfig extends Config
 	@ConfigItem(
 		keyName = "chargePrompt",
 		name = "Beam charge calls",
-		description = "When the boss charges its beam, say how to interrupt it: halberd punish, hit the shield, or any attack.",
+		description = "When the boss charges its beam, say how to interrupt it: halberd punish, or any attack while burrowed.",
 		position = 2,
 		section = PROMPTS
 	)
@@ -77,8 +89,9 @@ public interface DoomHelperConfig extends Config
 
 	@ConfigItem(
 		keyName = "shockwavePrompt",
-		name = "Shockwave shield reminder",
-		description = "Remind you to break two volatile earth if no earthen shield exists shortly before the shockwave.",
+		name = "Orb countdown",
+		description = "When the volatile earth appear, count down to the last tick you can click the second one and "
+			+ "still have the earthen shield up for the first stomp. Allows for your distance to the nearest orb.",
 		position = 5,
 		section = PROMPTS
 	)
@@ -87,12 +100,26 @@ public interface DoomHelperConfig extends Config
 		return true;
 	}
 
+	@Range(min = -3, max = 3)
+	@ConfigItem(
+		keyName = "orbTimingOffset",
+		name = "Orb countdown offset",
+		description = "Shift the orb countdown's zero. Negative if the shield comes up too late when you click on 0, "
+			+ "positive if it's up (and gone) too early.",
+		position = 6,
+		section = PROMPTS
+	)
+	default int orbTimingOffset()
+	{
+		return 0;
+	}
+
 	@ConfigItem(
 		keyName = "carPath",
 		name = "Car phase charge path",
 		description = "When the burrowed boss' eye appears, shade the lane it will charge through and the spot it "
 			+ "lands on, so you can step out of the trample.",
-		position = 6,
+		position = 7,
 		section = PROMPTS
 	)
 	default boolean carPath()
@@ -104,7 +131,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "slamPrompt",
 		name = "Car slam countdown",
 		description = "Delve 6+: count down to each car slam's damage from the moment the eye appears.",
-		position = 7,
+		position = 8,
 		section = PROMPTS
 	)
 	default boolean slamPrompt()
@@ -117,7 +144,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "fontSize",
 		name = "Prompt size",
 		description = "Font size of the prompts above your character.",
-		position = 8,
+		position = 9,
 		section = PROMPTS
 	)
 	default int fontSize()
