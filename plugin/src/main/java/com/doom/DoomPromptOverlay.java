@@ -38,6 +38,7 @@ class DoomPromptOverlay extends Overlay
 	private static final Color SWAP = new Color(235, 235, 235);
 	private static final Color WARN = new Color(255, 140, 60);
 	private static final Color OK = new Color(120, 230, 120);
+	private static final Color PRAYER_POT = new Color(90, 210, 230);
 	private static final Color RING = new Color(255, 150, 60, 200);
 	private static final Color PATH_FILL = new Color(240, 210, 90, 60);
 	private static final Color PATH_EDGE = new Color(240, 210, 90, 200);
@@ -111,6 +112,11 @@ class DoomPromptOverlay extends Overlay
 	{
 		int tick = plugin.getTick();
 		List<Prompt> prompts = new ArrayList<>(3);
+
+		if (config.prayerPotPrompt() && plugin.getPrayerPoints() < config.prayerPotThreshold())
+		{
+			prompts.add(new Prompt("DRINK PRAYER  " + plugin.getPrayerPoints(), PRAYER_POT));
+		}
 
 		if (config.rockCallout())
 		{

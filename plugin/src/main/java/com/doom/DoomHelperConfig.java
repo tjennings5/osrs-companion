@@ -151,12 +151,37 @@ public interface DoomHelperConfig extends Config
 		return true;
 	}
 
+	@ConfigItem(
+		keyName = "prayerPotPrompt",
+		name = "Low prayer reminder",
+		description = "Show \"DRINK PRAYER\" above your character when your prayer points drop below the threshold.",
+		position = 11,
+		section = PROMPTS
+	)
+	default boolean prayerPotPrompt()
+	{
+		return true;
+	}
+
+	@Range(min = 1, max = 99)
+	@ConfigItem(
+		keyName = "prayerPotThreshold",
+		name = "Low prayer threshold",
+		description = "Remind you to drink when prayer points are below this.",
+		position = 12,
+		section = PROMPTS
+	)
+	default int prayerPotThreshold()
+	{
+		return 25;
+	}
+
 	@Range(min = 12, max = 40)
 	@ConfigItem(
 		keyName = "fontSize",
 		name = "Prompt size",
 		description = "Font size of the prompts above your character.",
-		position = 11,
+		position = 13,
 		section = PROMPTS
 	)
 	default int fontSize()
