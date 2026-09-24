@@ -87,12 +87,37 @@ public interface DoomHelperConfig extends Config
 		return true;
 	}
 
+	@ConfigItem(
+		keyName = "carPath",
+		name = "Car phase charge path",
+		description = "When the burrowed boss' eye appears, shade the lane it will charge through and the spot it "
+			+ "lands on, so you can step out of the trample.",
+		position = 6,
+		section = PROMPTS
+	)
+	default boolean carPath()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "slamPrompt",
+		name = "Car slam countdown",
+		description = "Delve 6+: count down to each car slam's damage from the moment the eye appears.",
+		position = 7,
+		section = PROMPTS
+	)
+	default boolean slamPrompt()
+	{
+		return true;
+	}
+
 	@Range(min = 12, max = 40)
 	@ConfigItem(
 		keyName = "fontSize",
 		name = "Prompt size",
 		description = "Font size of the prompts above your character.",
-		position = 6,
+		position = 8,
 		section = PROMPTS
 	)
 	default int fontSize()

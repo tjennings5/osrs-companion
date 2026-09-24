@@ -27,6 +27,7 @@ import net.runelite.api.Projectile;
 import net.runelite.api.TileObject;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.ChatMessage;
@@ -51,6 +52,7 @@ import net.runelite.api.events.WallObjectDespawned;
 import net.runelite.api.events.WallObjectSpawned;
 import net.runelite.api.events.WidgetClosed;
 import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -280,7 +282,9 @@ public class DoomHelperPlugin extends Plugin
 		inFight = false;
 		arenaRegion = -1;
 		seenProjectiles.clear();
-		tracker.reset();
+		// Keep the delve: sitting at the between-delve prompt can outlast the
+		// grace period, and the next "Delve level" message sets it anyway.
+		tracker.resetDelve();
 	}
 
 	private void startRecording(Player me, int region)
@@ -399,6 +403,26 @@ public class DoomHelperPlugin extends Plugin
 		seenProjectiles.retainAll(live);
 	}
 
+	/**
+	 * Logs whether the game's own line-of-sight check says the player is
+	 * covered from the slam. Not shown to the player yet: the next recordings
+	 * compare this against whether the slam actually hit before it's trusted.
+	 */
+	private void recordSlamCover()
+	{
+		LocalPoint eye = tracker.getEyeLocation();
+		Player me = client.getLocalPlayer();
+		WorldView wv = client.getTopLevelWorldView();
+		if (eye == null || me == null || wv == null)
+		{
+			return;
+		}
+		WorldPoint center = WorldPoint.fromLocal(client, eye);
+		WorldArea boss = new WorldArea(center.dx(-2).dy(-2), 5, 5);
+		rec("SLAM_CHECK los=" + boss.hasLineOfSightTo(wv, me.getWorldLocation())
+			+ " eye=" + loc(eye) + " me=" + loc(me.getLocalLocation()));
+	}
+
 	// ---- event subscribers ----
 
 	@Subscribe
@@ -460,6 +484,10 @@ public class DoomHelperPlugin extends Plugin
 		{
 			return;
 		}
+		if (anim == AnimationID.DOM_BURROWED_EXPLOSION)
+		{
+			recordSlamCover();
+		}
 		if (actor == client.getLocalPlayer())
 		{
 			rec("ANIM who=me id=" + anim);
@@ -496,6 +524,12 @@ public class DoomHelperPlugin extends Plugin
 	@Subscribe
 	public void onGraphicsObjectCreated(GraphicsObjectCreated event)
 	{
+		if (event.getGraphicsObject().getId() == DoomIds.BURROW_EYE)
+		{
+			NPC boss = findBoss();
+			tracker.onBurrowEye(client.getTickCount(), event.getGraphicsObject().getLocation(),
+				boss == null ? null : boss.getLocalLocation());
+		}
 		if (recorder.isOpen())
 		{
 			int id = event.getGraphicsObject().getId();

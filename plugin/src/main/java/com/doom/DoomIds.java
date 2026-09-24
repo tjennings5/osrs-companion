@@ -38,6 +38,9 @@ final class DoomIds
 		NpcID.DOM_DEMONIC_ENERGY_GIANT_RANGE,
 		NpcID.DOM_DEMONIC_ENERGY_GIANT_MAGE);
 
+	/** Graphics object marking where the burrowed boss will charge to. */
+	static final int BURROW_EYE = SpotanimID.VFX_DOOM_BOSS_BURROWED_TELEGRAPH_SPAWN;
+
 	static final Set<Integer> BOSS_FORMS = Set.of(BOSS, BOSS_SHIELDED, BOSS_BURROWED);
 
 	static final Map<Integer, String> NPC_NAMES = Map.ofEntries(

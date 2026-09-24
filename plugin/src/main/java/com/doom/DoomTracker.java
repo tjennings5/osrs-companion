@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.gameval.AnimationID;
 
 /**
@@ -53,8 +54,23 @@ class DoomTracker
 	 */
 	private static final int ROCK_FIRST_HIT_TICKS = 13;
 
-	/** Volatile earth spawn to the first shockwave's damage: slam animation at +19, hitsplat at +21. */
-	private static final int SHOCKWAVE_HIT_TICKS = 21;
+	/**
+	 * Volatile earth spawn to the boss' shockwave slam animation: +19 in every
+	 * recorded delve (1-5). Damage follows a tick or two later; counting to the
+	 * animation keeps the timer on the safe side.
+	 */
+	private static final int SHOCKWAVE_HIT_TICKS = 19;
+
+	/**
+	 * Car phase, from the delve 5 and 6 recordings: the boss starts moving 3
+	 * ticks after its eye appears, arrives (and at delve 6+ slams) at +6, and
+	 * the slam's damage lands at +12.
+	 */
+	private static final int EYE_TO_ARRIVAL_TICKS = 6;
+	private static final int EYE_TO_SLAM_DAMAGE_TICKS = 12;
+
+	/** Car slams start at delve 6; delve 5's car phase only zooms. */
+	private static final int FIRST_SLAM_DELVE = 6;
 
 	/**
 	 * A melee charge starts 2 ticks after a Rock Throw animation. The shield
@@ -86,6 +102,14 @@ class DoomTracker
 	@Getter
 	private boolean earthenShieldMade;
 
+	private int eyeTick = -1;
+
+	/** Where the burrowed boss is headed (its centre ends up on the eye), and where it set off from. */
+	@Getter
+	private LocalPoint eyeLocation;
+	@Getter
+	private LocalPoint chargeStart;
+
 	private final List<Incoming> incoming = new ArrayList<>();
 
 	void reset()
@@ -103,6 +127,9 @@ class DoomTracker
 		lastPunishTick = -1;
 		shockwaveSpawnTick = -1;
 		earthenShieldMade = false;
+		eyeTick = -1;
+		eyeLocation = null;
+		chargeStart = null;
 		incoming.clear();
 	}
 
@@ -182,6 +209,31 @@ class DoomTracker
 			shockwaveSpawnTick = tick;
 			earthenShieldMade = false;
 		}
+	}
+
+	/** The burrowed boss' eye appeared: it will charge from {@code from} to {@code eye}. */
+	void onBurrowEye(int tick, LocalPoint eye, LocalPoint from)
+	{
+		eyeTick = tick;
+		eyeLocation = eye;
+		chargeStart = from;
+	}
+
+	/** True while the burrowed boss is about to charge or charging along its path. */
+	boolean isChargePathActive(int tick)
+	{
+		return eyeTick >= 0 && tick <= eyeTick + EYE_TO_ARRIVAL_TICKS;
+	}
+
+	/** Ticks until the current car slam's damage, or -1 if none is coming. */
+	int ticksUntilSlam(int tick)
+	{
+		if (eyeTick < 0 || delve < FIRST_SLAM_DELVE)
+		{
+			return -1;
+		}
+		int left = eyeTick + EYE_TO_SLAM_DAMAGE_TICKS - tick;
+		return left >= 0 ? left : -1;
 	}
 
 	void onEarthenShieldSpawn()
