@@ -26,19 +26,6 @@ public interface DoomHelperConfig extends Config
 	String RECORDING = "recording";
 
 	@ConfigItem(
-		keyName = "prayerHighlight",
-		name = "Prayer highlight",
-		description = "Box the protection prayer in your prayer tab that the next attack to land needs. It moves the "
-			+ "moment that attack lands, including through a Rock Throw's back-to-back follow-ups.",
-		position = 0,
-		section = PROMPTS
-	)
-	default boolean prayerHighlight()
-	{
-		return true;
-	}
-
-	@ConfigItem(
 		keyName = "rockCallout",
 		name = "Rock type callout",
 		description = "When the boss throws a rock, say its type above your character until its follow-ups have landed.",
@@ -155,7 +142,7 @@ public interface DoomHelperConfig extends Config
 	@ConfigItem(
 		keyName = "showPanel",
 		name = "Info panel",
-		description = "Panel with delve level, phase, incoming attacks and the shockwave timer.",
+		description = "Panel with delve level, phase and the shockwave timer.",
 		position = 7
 	)
 	default boolean showPanel()

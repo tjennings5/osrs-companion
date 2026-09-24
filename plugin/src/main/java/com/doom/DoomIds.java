@@ -117,22 +117,6 @@ final class DoomIds
 		Map.entry(SpotanimID.VFX_DOOM_MOUND_DESPAWN, "MOUND_DESPAWN"),
 		Map.entry(SpotanimID.VFX_DEMONIC_GRUB_SPAWN, "LARVA_SPAWN"));
 
-	/** Style of one of the boss' attack projectiles aimed at the player, or null if it isn't one. */
-	static AttackStyle standardProjectileStyle(int id)
-	{
-		switch (id)
-		{
-			case SpotanimID.VFX_STANDARD_PROJECTILE_MAGIC:
-				return AttackStyle.MAGIC;
-			case SpotanimID.VFX_STANDARD_PROJECTILE_RANGE:
-				return AttackStyle.RANGED;
-			case SpotanimID.VFX_STANDARD_PROJECTILE_MELEE:
-				return AttackStyle.MELEE;
-			default:
-				return null;
-		}
-	}
-
 	/**
 	 * Style of a Rock Throw's launched rock, or null if it isn't one. Recordings
 	 * show the first follow-up projectile to land is always this style, with
