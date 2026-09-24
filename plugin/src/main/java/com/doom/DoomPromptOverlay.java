@@ -26,10 +26,10 @@ import net.runelite.client.ui.overlay.OverlayPosition;
  * Prompts above the player's head, plus floor markings: the halberd range
  * ring and the car phase charge lane.
  *
- * Only shows what needs doing right now: the rock type while its follow-ups
- * are in the air, a charge call only while the boss is charging. Prayers are
- * called on the prayer tab instead ({@link DoomPrayerOverlay}). No flashing,
- * same as the other helpers here.
+ * Only shows what needs doing right now, e.g. a charge call only while the
+ * boss is charging. The rock callout and prayer reminder live in
+ * {@link DoomAlertOverlay} instead, where the overhead prayer icon can't hide
+ * them. No flashing, same as the other helpers here.
  */
 class DoomPromptOverlay extends Overlay
 {
@@ -38,7 +38,6 @@ class DoomPromptOverlay extends Overlay
 	private static final Color SWAP = new Color(235, 235, 235);
 	private static final Color WARN = new Color(255, 140, 60);
 	private static final Color OK = new Color(120, 230, 120);
-	private static final Color PRAYER_POT = new Color(90, 210, 230);
 	private static final Color RING = new Color(255, 150, 60, 200);
 	private static final Color PATH_FILL = new Color(240, 210, 90, 60);
 	private static final Color PATH_EDGE = new Color(240, 210, 90, 200);
@@ -112,21 +111,6 @@ class DoomPromptOverlay extends Overlay
 	{
 		int tick = plugin.getTick();
 		List<Prompt> prompts = new ArrayList<>(3);
-
-		if (config.prayerPotPrompt() && plugin.getPrayerPoints() < config.prayerPotThreshold())
-		{
-			prompts.add(new Prompt("DRINK PRAYER  " + plugin.getPrayerPoints(), PRAYER_POT));
-		}
-
-		if (config.rockCallout())
-		{
-			AttackStyle rock = tracker.getRockCallout(tick);
-			if (rock != null)
-			{
-				boolean stomp = config.rockStompWarning() && tracker.isRockDuringShockwave(tick);
-				prompts.add(new Prompt(rock.getLabel() + " ROCK" + (stomp ? " + STOMP" : ""), rock.getColor()));
-			}
-		}
 
 		if (config.slamPrompt())
 		{

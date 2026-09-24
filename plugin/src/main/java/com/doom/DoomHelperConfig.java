@@ -28,7 +28,7 @@ public interface DoomHelperConfig extends Config
 	@ConfigItem(
 		keyName = "rockCallout",
 		name = "Rock type callout",
-		description = "When the boss throws a rock, say its type above your character until its follow-ups have landed.",
+		description = "When the boss throws a rock, show its type beside the inventory until its follow-ups have landed.",
 		position = 1,
 		section = PROMPTS
 	)
@@ -154,7 +154,7 @@ public interface DoomHelperConfig extends Config
 	@ConfigItem(
 		keyName = "prayerPotPrompt",
 		name = "Low prayer reminder",
-		description = "Show \"DRINK PRAYER\" above your character when your prayer points drop below the threshold.",
+		description = "Show \"DRINK PRAYER\" beside the inventory when your prayer points drop below the threshold.",
 		position = 11,
 		section = PROMPTS
 	)
@@ -193,7 +193,7 @@ public interface DoomHelperConfig extends Config
 	@ConfigItem(
 		keyName = "fontSize",
 		name = "Prompt size",
-		description = "Font size of the prompts above your character.",
+		description = "Font size of the prompts above your character and the alerts beside the inventory.",
 		position = 14,
 		section = PROMPTS
 	)
