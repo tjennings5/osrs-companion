@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +23,8 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 
 /**
- * Prompts above the player's head, plus the halberd range ring on the floor.
+ * Prompts above the player's head, plus floor markings: the halberd range
+ * ring and the car phase charge lane.
  *
  * Only shows what needs doing right now: a prayer call only when the prayer
  * is wrong, a charge call only while the boss is charging. No flashing, same
@@ -36,6 +38,12 @@ class DoomPromptOverlay extends Overlay
 	private static final Color SWAP = new Color(235, 235, 235);
 	private static final Color WARN = new Color(255, 140, 60);
 	private static final Color RING = new Color(255, 150, 60, 200);
+	private static final Color PATH_FILL = new Color(240, 210, 90, 60);
+	private static final Color PATH_EDGE = new Color(240, 210, 90, 200);
+	private static final Color SLAM = new Color(255, 110, 90);
+
+	/** The boss is 5x5, so its lane and landing square extend this many tiles either side of its centre. */
+	private static final double BOSS_HALF_WIDTH = 2.5;
 
 	/** Crystal halberd's special attack cost. */
 	private static final int HALBERD_SPEC_COST = 30;
@@ -87,6 +95,11 @@ class DoomPromptOverlay extends Overlay
 			drawHalberdRing(graphics);
 		}
 
+		if (config.carPath() && tracker.isChargePathActive(plugin.getTick()))
+		{
+			drawChargePath(graphics, tracker.getChargeStart(), tracker.getEyeLocation());
+		}
+
 		List<Prompt> prompts = buildPrompts(tracker, charge);
 		if (!prompts.isEmpty())
 		{
@@ -115,6 +128,15 @@ class DoomPromptOverlay extends Overlay
 						next.getStyle().getColor()));
 				}
 				break;
+			}
+		}
+
+		if (config.slamPrompt())
+		{
+			int slam = tracker.ticksUntilSlam(tick);
+			if (slam >= 0)
+			{
+				prompts.add(new Prompt("SLAM " + slam + " - GET BEHIND A ROCK", SLAM));
 			}
 		}
 
@@ -233,6 +255,69 @@ class DoomPromptOverlay extends Overlay
 			segment(graphics, minX, c, minX, d, center, plane);
 			segment(graphics, maxX, c, maxX, d, center, plane);
 		}
+	}
+
+	/**
+	 * Shades the 5-wide lane from where the boss is to its eye, plus the 5x5
+	 * square it lands on. The arena floor is flat, so projecting the four
+	 * corners is enough.
+	 */
+	private void drawChargePath(Graphics2D graphics, LocalPoint from, LocalPoint to)
+	{
+		if (to == null)
+		{
+			return;
+		}
+		int plane = client.getTopLevelWorldView().getPlane();
+		double half = BOSS_HALF_WIDTH * Perspective.LOCAL_TILE_SIZE;
+
+		Polygon landing = quad(to, plane,
+			to.getX() - half, to.getY() - half, to.getX() + half, to.getY() - half,
+			to.getX() + half, to.getY() + half, to.getX() - half, to.getY() + half);
+
+		Polygon lane = null;
+		if (from != null && (from.getX() != to.getX() || from.getY() != to.getY()))
+		{
+			double dx = to.getX() - from.getX();
+			double dy = to.getY() - from.getY();
+			double len = Math.hypot(dx, dy);
+			// Perpendicular offset for the lane's sides.
+			double px = -dy / len * half;
+			double py = dx / len * half;
+			lane = quad(to, plane,
+				from.getX() + px, from.getY() + py, to.getX() + px, to.getY() + py,
+				to.getX() - px, to.getY() - py, from.getX() - px, from.getY() - py);
+		}
+
+		graphics.setStroke(new BasicStroke(2));
+		for (Polygon poly : new Polygon[]{lane, landing})
+		{
+			if (poly == null)
+			{
+				continue;
+			}
+			graphics.setColor(PATH_FILL);
+			graphics.fill(poly);
+			graphics.setColor(PATH_EDGE);
+			graphics.draw(poly);
+		}
+	}
+
+	/** Projects four local-space corners to a screen polygon, or null if any is off screen. */
+	private Polygon quad(LocalPoint ref, int plane, double... xy)
+	{
+		Polygon poly = new Polygon();
+		for (int i = 0; i < xy.length; i += 2)
+		{
+			Point p = Perspective.localToCanvas(client,
+				new LocalPoint((int) xy[i], (int) xy[i + 1], ref.getWorldView()), plane);
+			if (p == null)
+			{
+				return null;
+			}
+			poly.addPoint(p.getX(), p.getY());
+		}
+		return poly;
 	}
 
 	private void segment(Graphics2D graphics, int x1, int y1, int x2, int y2, LocalPoint ref, int plane)
