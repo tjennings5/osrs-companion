@@ -59,6 +59,26 @@ class DoomHelperOverlay extends OverlayPanel
 			.rightColor(phase == DoomTracker.Phase.SHIELDED ? SHIELD : phase == DoomTracker.Phase.BURROWED ? BURROW : NORMAL)
 			.build());
 
+		int bonus = tracker.getShieldBonus(tick);
+		if (config.shieldBonus() && bonus >= 0)
+		{
+			int toMax = tracker.ticksToMaxShieldBonus(tick);
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Shield bonus")
+				.right("~" + bonus + " / 50")
+				.rightColor(toMax == 0 ? OK : SHIELD)
+				.build());
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left(toMax == 0 ? "Maxed" : "Max in")
+				.right(toMax == 0 ? "break it" : toMax + "t")
+				.rightColor(toMax == 0 ? OK : NORMAL)
+				.build());
+			panelComponent.getChildren().add(LineComponent.builder()
+				.left("Larvae killed")
+				.right(Integer.toString(tracker.getShieldLarvaKills()))
+				.build());
+		}
+
 		if (tracker.isShockwavePending(tick))
 		{
 			int left = tracker.ticksUntilShockwave(tick);

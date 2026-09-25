@@ -73,6 +73,18 @@ class DoomTracker
 	private static final int EYE_TO_SLAM_STATIONARY_TICKS = 3;
 	private static final int SLAM_ANIM_TO_DAMAGE_TICKS = 6;
 
+	/**
+	 * When the shield phase ends the boss takes a free hit that grows with
+	 * how long the shield lasted: about 1 per 2 ticks plus 1, capped at 50.
+	 * Fitted to 59 recorded shield phases (37 ticks gave 20, 57 gave 32, 82
+	 * gave 42, and every one of 105+ gave 50). Larva kills only matter by
+	 * keeping the shield up - the same 4 kills gave 20 to 28 by duration.
+	 * It's also capped by the boss' remaining hitpoints.
+	 */
+	private static final int SHIELD_BONUS_CAP = 50;
+	private static final int SHIELD_BONUS_BASE = 1;
+	private static final int SHIELD_TICKS_PER_BONUS = 2;
+
 	/** Car slams start at delve 6; delve 5's car phase only zooms. */
 	private static final int FIRST_SLAM_DELVE = 6;
 
@@ -111,6 +123,12 @@ class DoomTracker
 
 	private int eyeTick = -1;
 
+	private int shieldStartTick = -1;
+
+	/** Larvae killed during the current shield phase. */
+	@Getter
+	private int shieldLarvaKills;
+
 	/** Tick the current car slam's damage lands: estimated from the eye, then exact once the slam starts. */
 	private int slamDamageTick = -1;
 
@@ -138,6 +156,8 @@ class DoomTracker
 		shockwaveSpawnTick = -1;
 		earthenShieldMade = false;
 		eyeTick = -1;
+		shieldStartTick = -1;
+		shieldLarvaKills = 0;
 		slamDamageTick = -1;
 		eyeLocation = null;
 		chargeStart = null;
@@ -149,10 +169,15 @@ class DoomTracker
 		resetDelve();
 	}
 
-	void onBossForm(int npcId)
+	void onBossForm(int npcId, int tick)
 	{
 		if (npcId == DoomIds.BOSS_SHIELDED)
 		{
+			if (phase != Phase.SHIELDED)
+			{
+				shieldStartTick = tick;
+				shieldLarvaKills = 0;
+			}
 			phase = Phase.SHIELDED;
 		}
 		else if (npcId == DoomIds.BOSS_BURROWED)
@@ -164,6 +189,31 @@ class DoomTracker
 			phase = Phase.NORMAL;
 		}
 		meleeCharging = false;
+	}
+
+	void onLarvaKilled()
+	{
+		if (phase == Phase.SHIELDED)
+		{
+			shieldLarvaKills++;
+		}
+	}
+
+	/** Estimated free hit if the shield ended now, or -1 outside the shield phase. */
+	int getShieldBonus(int tick)
+	{
+		if (phase != Phase.SHIELDED || shieldStartTick < 0)
+		{
+			return -1;
+		}
+		return Math.min(SHIELD_BONUS_CAP, (tick - shieldStartTick) / SHIELD_TICKS_PER_BONUS + SHIELD_BONUS_BASE);
+	}
+
+	/** Ticks of shield left until the free hit reaches its cap; 0 once it has. */
+	int ticksToMaxShieldBonus(int tick)
+	{
+		int maxTick = shieldStartTick + (SHIELD_BONUS_CAP - SHIELD_BONUS_BASE) * SHIELD_TICKS_PER_BONUS;
+		return Math.max(0, maxTick - tick);
 	}
 
 	void onBossAnimation(int animation, int tick)
