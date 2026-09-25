@@ -15,13 +15,14 @@ import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayPosition;
 
 /**
- * Large alerts in a fixed spot next to the inventory: the rock type and the
- * low prayer reminder. Moved off the player's head because the overhead
+ * Large alerts in a fixed spot next to the inventory: the rock type, the
+ * shield bonus reaching its cap, and the low prayer reminder. Moved off the player's head because the overhead
  * prayer icon covered them. Alt-drag to reposition like any overlay.
  */
 class DoomAlertOverlay extends Overlay
 {
 	private static final Color PRAYER_POT = new Color(90, 210, 230);
+	private static final Color BONUS = new Color(120, 230, 120);
 
 	@RequiredArgsConstructor
 	private static final class Line
@@ -105,6 +106,12 @@ class DoomAlertOverlay extends Overlay
 				boolean stomp = config.rockStompWarning() && tracker.isRockDuringShockwave(tick);
 				lines.add(new Line(rock.getLabel() + " ROCK" + (stomp ? " + STOMP" : ""), rock.getColor()));
 			}
+		}
+
+		int bonus = tracker.getShieldBonus(tick);
+		if (config.shieldBonus() && bonus >= 0 && tracker.ticksToMaxShieldBonus(tick) == 0)
+		{
+			lines.add(new Line("SHIELD BONUS MAXED", BONUS));
 		}
 
 		if (config.prayerPotPrompt() && plugin.getPrayerPoints() < config.prayerPotThreshold())

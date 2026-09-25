@@ -278,7 +278,7 @@ public class DoomHelperPlugin extends Plugin
 		tracker.resetDelve();
 		if (boss != null)
 		{
-			tracker.onBossForm(boss.getId());
+			tracker.onBossForm(boss.getId(), client.getTickCount());
 		}
 	}
 
@@ -416,7 +416,7 @@ public class DoomHelperPlugin extends Plugin
 		int id = npc.getId();
 		if (DoomIds.BOSS_FORMS.contains(id))
 		{
-			tracker.onBossForm(id);
+			tracker.onBossForm(id, client.getTickCount());
 		}
 		else if (id == NpcID.DOM_SHOCKWAVE_PATH_NODE)
 		{
@@ -437,9 +437,15 @@ public class DoomHelperPlugin extends Plugin
 		{
 			tracker.resetDelve();
 		}
+		// A larva that reaches the boss is absorbed rather than killed, so only
+		// dead ones count.
+		if (DoomIds.LARVAE.contains(event.getNpc().getId()) && event.getNpc().isDead())
+		{
+			tracker.onLarvaKilled();
+		}
 		if (recorder.isOpen())
 		{
-			rec("NPC_DESPAWN " + describeNpc(event.getNpc()));
+			rec("NPC_DESPAWN " + describeNpc(event.getNpc()) + " dead=" + event.getNpc().isDead());
 		}
 	}
 
