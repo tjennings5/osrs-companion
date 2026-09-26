@@ -129,8 +129,8 @@ public interface DoomHelperConfig extends Config
 	@ConfigItem(
 		keyName = "shieldBonus",
 		name = "Shield bonus tracker",
-		description = "During the shield phase, show the estimated free hit the boss takes when the shield ends "
-			+ "(it grows with how long the shield lasts, up to 50), larvae killed, and when it reaches 50.",
+		description = "Delve 5+: during the shield phase, show the estimated free hit the boss takes when the shield "
+			+ "ends (it grows with how long the shield lasts, up to 50), larvae killed, and when it reaches 50.",
 		position = 9,
 		section = PROMPTS
 	)

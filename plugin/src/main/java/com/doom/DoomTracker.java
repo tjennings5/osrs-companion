@@ -56,12 +56,8 @@ class DoomTracker
 	 */
 	private static final int CLICK_TO_SHIELD_EXTRA_TICKS = 3;
 
-	/**
-	 * A Rock Throw's follow-up projectiles land from +13 to +16 after the rock
-	 * is thrown in every recording; the callout stays up until the last one.
-	 */
-	private static final int ROCK_FIRST_HIT_TICKS = 13;
-	private static final int ROCK_CALLOUT_TICKS = 16;
+	/** Delve 5+ gets the boss' shield bonus reliably; at delves 3-4 it was missing about half the time. */
+	private static final int SHIELD_BONUS_MIN_DELVE = 5;
 
 	/**
 	 * Car phase, from the delve 5 and 6 recordings: the boss starts moving 3
@@ -202,7 +198,7 @@ class DoomTracker
 	/** Estimated free hit if the shield ended now, or -1 outside the shield phase. */
 	int getShieldBonus(int tick)
 	{
-		if (phase != Phase.SHIELDED || shieldStartTick < 0)
+		if (phase != Phase.SHIELDED || shieldStartTick < 0 || delve < SHIELD_BONUS_MIN_DELVE)
 		{
 			return -1;
 		}
@@ -321,17 +317,47 @@ class DoomTracker
 		}
 	}
 
+	/**
+	 * Ticks from a Rock Throw to its first follow-up landing, by delve. The
+	 * rock splits at +7 (+6 from delve 5) and the follow-ups speed up with
+	 * depth; measured across every recorded rock: +13 at delves 1, 3 and 4,
+	 * +15 at delve 2, +12 at 5-6 and +10 at 7.
+	 */
+	private int rockFirstHitTicks()
+	{
+		if (delve == 2)
+		{
+			return 15;
+		}
+		if (delve <= 4)
+		{
+			return 13;
+		}
+		return delve <= 6 ? 12 : 10;
+	}
+
+	/** Ticks from a Rock Throw to its last follow-up landing: +16 at delves 1-4, +14 at 5-6, +12 at 7. */
+	private int rockLastHitTicks()
+	{
+		if (delve <= 4)
+		{
+			return 16;
+		}
+		return delve <= 6 ? 14 : 12;
+	}
+
 	/** Style of the rock thrown most recently, while its follow-ups are still to land; otherwise null. */
 	AttackStyle getRockCallout(int tick)
 	{
-		return rockLaunchTick >= 0 && tick <= rockLaunchTick + ROCK_CALLOUT_TICKS ? rockStyle : null;
+		return rockLaunchTick >= 0 && tick <= rockLaunchTick + rockLastHitTicks() ? rockStyle : null;
 	}
 
 	/**
 	 * Ticks until the boss attacks again after a melee punish, or -1 outside
 	 * that window. Measured from the punish (BEAM_CANCEL) to the next attack
-	 * animation: 7 ticks at delve 1 and 6 at delves 3-4 in recordings, which is
-	 * the wiki's 8/7/6 table minus one. Delve 7+ follows that table unrecorded.
+	 * animation across all recordings: 6 at delves 1-6 (7 was also seen at
+	 * delves 1-2; the earlier value is the one to plan around). Delve 7+ is
+	 * unrecorded and takes the wiki's one-tick-shorter delay.
 	 */
 	int ticksUntilAttackAfterPunish(int tick)
 	{
@@ -339,7 +365,7 @@ class DoomTracker
 		{
 			return -1;
 		}
-		int delay = delve <= 2 ? 7 : delve <= 6 ? 6 : 5;
+		int delay = delve <= 6 ? 6 : 5;
 		int left = lastPunishTick + delay - tick;
 		return left >= 0 ? left : -1;
 	}
@@ -355,8 +381,8 @@ class DoomTracker
 			return false;
 		}
 		int firstWave = shockwaveSpawnTick + SHOCKWAVE_HIT_TICKS;
-		return rockLaunchTick + ROCK_FIRST_HIT_TICKS <= lastShockwaveTick()
-			&& rockLaunchTick + ROCK_CALLOUT_TICKS >= firstWave;
+		return rockLaunchTick + rockFirstHitTicks() <= lastShockwaveTick()
+			&& rockLaunchTick + rockLastHitTicks() >= firstWave;
 	}
 
 	/** Ticks until the last shockwave's damage: how long to stay in the earthen shield. */
