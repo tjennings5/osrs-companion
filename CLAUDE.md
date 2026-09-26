@@ -31,7 +31,7 @@ osrs-companion/
       com/farmrun/        # FarmRunPlugin
       com/kalphite/       # KalphiteFlinchPlugin
       com/spawntimer/     # SpawnTimerPlugin — ctrl+right-click NPC spawn point timers
-      com/doom/           # DoomHelperPlugin — Doom of Mokhaiotl helper (currently records fight events)
+      com/doom/           # DoomHelperPlugin — Doom of Mokhaiotl prompts/timers + fight recorder (.runelite/doom-helper/recordings)
       com/combat/         # Shared combat utilities (AttackClock, HealthBar, XpDamage)
     src/test/java/com/bridge/
       OsrsMcpBridgePluginTest.java  # Dev entrypoint: loads all plugins via ExternalPluginManager
