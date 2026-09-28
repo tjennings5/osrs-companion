@@ -140,11 +140,25 @@ public interface DoomHelperConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "shieldBeamPrompt",
+		name = "Shield beam countdown",
+		description = "During the shield phase, when the boss' beam has charged for a while without being cancelled, "
+			+ "count down to the last tick a hit on the boss can land. Uncancelled, it fires for up to 99. "
+			+ "Ranged and magic hits land a tick or two after you attack.",
+		position = 10,
+		section = PROMPTS
+	)
+	default boolean shieldBeamPrompt()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "carPath",
 		name = "Car phase charge path",
 		description = "When the burrowed boss' eye appears, shade the lane it will charge through and the spot it "
 			+ "lands on, so you can step out of the trample.",
-		position = 10,
+		position = 11,
 		section = PROMPTS
 	)
 	default boolean carPath()
@@ -156,7 +170,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "slamPrompt",
 		name = "Car slam countdown",
 		description = "Delve 6+: count down to each car slam's damage from the moment the eye appears.",
-		position = 11,
+		position = 12,
 		section = PROMPTS
 	)
 	default boolean slamPrompt()
@@ -168,7 +182,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "prayerPotPrompt",
 		name = "Low prayer reminder",
 		description = "Show \"DRINK PRAYER\" beside the inventory when your prayer points drop below the threshold.",
-		position = 12,
+		position = 13,
 		section = PROMPTS
 	)
 	default boolean prayerPotPrompt()
@@ -181,7 +195,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "prayerPotThreshold",
 		name = "Low prayer threshold",
 		description = "Remind you to drink when prayer points are below this.",
-		position = 13,
+		position = 14,
 		section = PROMPTS
 	)
 	default int prayerPotThreshold()
@@ -194,7 +208,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "promptRaise",
 		name = "Prompt height",
 		description = "How far above your head the prompts sit, in pixels. The default clears the overhead prayer icon.",
-		position = 14,
+		position = 15,
 		section = PROMPTS
 	)
 	default int promptRaise()
@@ -207,7 +221,7 @@ public interface DoomHelperConfig extends Config
 		keyName = "fontSize",
 		name = "Prompt size",
 		description = "Font size of the prompts above your character and the alerts beside the inventory.",
-		position = 15,
+		position = 16,
 		section = PROMPTS
 	)
 	default int fontSize()

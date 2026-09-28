@@ -42,6 +42,13 @@ class DoomPromptOverlay extends Overlay
 	private static final Color PATH_FILL = new Color(240, 210, 90, 60);
 	private static final Color PATH_EDGE = new Color(240, 210, 90, 200);
 	private static final Color SLAM = new Color(255, 110, 90);
+	private static final Color BEAM = new Color(255, 90, 90);
+
+	/**
+	 * Most shield beam charges are cancelled within a few ticks by normal
+	 * attacks, so the countdown only shows once one has run this long.
+	 */
+	private static final int SHIELD_BEAM_SHOW_TICKS = 8;
 
 	/** The boss is 5x5, so its lane and landing square extend this many tiles either side of its centre. */
 	private static final double BOSS_HALF_WIDTH = 2.5;
@@ -111,6 +118,15 @@ class DoomPromptOverlay extends Overlay
 	{
 		int tick = plugin.getTick();
 		List<Prompt> prompts = new ArrayList<>(3);
+
+		if (config.shieldBeamPrompt())
+		{
+			int beam = tracker.ticksToCancelShieldBeam(tick);
+			if (beam >= 0 && beam <= SHIELD_BEAM_SHOW_TICKS)
+			{
+				prompts.add(new Prompt("HIT BOSS " + beam + " - BEAM", BEAM));
+			}
+		}
 
 		if (config.slamPrompt())
 		{
