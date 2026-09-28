@@ -73,7 +73,7 @@ if (Test-Path $configPath) {
     if (-not [string]::IsNullOrEmpty($content)) {
         foreach ($key in @('osrsmcpbridgeplugin', 'cerberushelperplugin', 'araxxorhelperplugin',
                            'drophighlighterplugin', 'kalphiteflinchplugin', 'farmrunplugin',
-                           'sailingsteeringplugin')) {
+                           'sailingsteeringplugin', 'spawntimerplugin', 'doomhelperplugin')) {
             if ($content -match "runelite\.$key=") {
                 $content = $content -replace "runelite\.$key=\w+", "runelite.$key=true"
             } else {
@@ -96,8 +96,20 @@ if (-not (Test-Path $java)) {
     }
 }
 
+# --- Run from a copy of the JAR ---
+# Launching straight from build\libs meant rebuilding while the client was
+# open overwrote the JAR it was still lazily loading classes from, crashing it
+# (ZipException "invalid LOC header", then NoClassDefFoundError). Each launch
+# gets its own copy; older copies are cleared unless a client still holds them.
+$runDir = "$winPluginDir\build\dev-run"
+New-Item -ItemType Directory -Force -Path $runDir | Out-Null
+Get-ChildItem "$runDir\*.jar" -ErrorAction SilentlyContinue |
+    ForEach-Object { Remove-Item $_.FullName -ErrorAction SilentlyContinue }
+$runJar = Join-Path $runDir ("dev-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".jar")
+Copy-Item $jar.FullName $runJar
+
 # --- Launch ---
 $launchArgs = @("--developer-mode")
 if ($DebugLog) { $launchArgs += "--debug" }
 Write-Host "Launching (scale $Scale$(if ($DebugLog) { ', debug logging on' }))..."
-& $java -ea "-Dsun.java2d.uiScale=$Scale" -jar $jar.FullName @launchArgs
+& $java -ea "-Dsun.java2d.uiScale=$Scale" -jar $runJar @launchArgs
