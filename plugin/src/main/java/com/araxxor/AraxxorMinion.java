@@ -35,7 +35,7 @@ enum AraxxorMinion
 		NpcID.ARAXXOR_MINION_EXPLODE,
 		AraxxorSpecial.ACID_DRIP,
 		"Ruptura",
-		"Walks at you and explodes: 70 under it, 49 next to it, 28 at 2 tiles. Back off.",
+		"Walks at you and explodes: 70 under it, 49 next to it, 28 a tile away, 7 at two. Back off.",
 		"minion-ruptura.wav");
 
 	private final int eggNpcId;

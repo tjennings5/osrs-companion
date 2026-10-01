@@ -57,16 +57,16 @@ public interface AraxxorHelperConfig extends Config
 		return true;
 	}
 
-	@Range(min = 1, max = 3)
+	@Range(min = 0, max = 5)
 	@ConfigItem(
-		keyName = "hatchLeadAttacks",
-		name = "Hatch warning lead (attacks)",
-		description = "How many standard attacks ahead of the hatch to warn. 1 gives the least noise, 2-3 more time to reposition.",
+		keyName = "hatchLeadTicks",
+		name = "Hatch warning lead (ticks)",
+		description = "How many ticks before the attack that hatches the egg to warn. 0 is on that attack.",
 		position = 5
 	)
-	default int hatchLeadAttacks()
+	default int hatchLeadTicks()
 	{
-		return 1;
+		return 2;
 	}
 
 	@ConfigItem(
@@ -104,7 +104,7 @@ public interface AraxxorHelperConfig extends Config
 	)
 	default int enrageWarnHp()
 	{
-		return 320;
+		return 290;
 	}
 
 	@ConfigItem(
@@ -140,6 +140,17 @@ public interface AraxxorHelperConfig extends Config
 		position = 11
 	)
 	default boolean verboseLogging()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "recordFights",
+		name = "Record fights",
+		description = "Write a log of each fight to .runelite/araxxor-helper/recordings, used to check and tune the cues' timing.",
+		position = 12
+	)
+	default boolean recordFights()
 	{
 		return true;
 	}

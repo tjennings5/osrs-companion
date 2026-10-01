@@ -1,5 +1,6 @@
 package com.doom;
 
+import com.combat.FightRecorder;
 import com.google.inject.Provides;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -71,7 +72,7 @@ import net.runelite.client.util.Text;
  * lives in {@link DoomTracker}; this class feeds it from game events.
  *
  * It can also record every relevant game event to a log file (see
- * {@link DoomRecorder}); the tracker's timings were built from those.
+ * {@link FightRecorder}); the tracker's timings were built from those.
  *
  * Display-only, like the other helpers here: it reads game state and never
  * sends input or acts for the player.
@@ -120,7 +121,7 @@ public class DoomHelperPlugin extends Plugin
 	@Inject
 	private DoomAlertOverlay alertOverlay;
 
-	private final DoomRecorder recorder = new DoomRecorder();
+	private final FightRecorder recorder = new FightRecorder("doom-helper", "doom");
 
 	@Getter
 	private final DoomTracker tracker = new DoomTracker();

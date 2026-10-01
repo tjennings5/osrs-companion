@@ -2,25 +2,33 @@ package com.araxxor;
 
 import com.google.inject.Provides;
 import com.combat.AttackClock;
+import com.combat.FightRecorder;
 import com.combat.HealthBar;
 import com.combat.XpDamage;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Actor;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.OverheadTextChanged;
@@ -72,6 +80,16 @@ public class AraxxorHelperPlugin extends Plugin
 	private static final int NORMAL_SPEED_TICKS = 6;
 	private static final int ENRAGE_SPEED_TICKS = 4;
 
+	/**
+	 * A standard attack animation this soon after the last one can't be a new
+	 * attack at either speed, so it's the same attack firing its event twice.
+	 * Counting it would push every hatch cue an attack early.
+	 */
+	private static final int DUPLICATE_ATTACK_TICKS = 2;
+
+	/** Stop recording after this long with nothing from the fight in the scene. */
+	private static final int RECORDING_IDLE_TICKS = 100;
+
 	/** Standard attacks between specials. The phase is learned from the first one seen. */
 	private static final int SPECIAL_PERIOD = 6;
 
@@ -104,8 +122,17 @@ public class AraxxorHelperPlugin extends Plugin
 
 	private final Map<Skill, Integer> lastCombatXp = new EnumMap<>(Skill.class);
 
-	/** Eggs seen this fight, used once to work out the hatch order. */
-	private final List<AraxxorEggCycle.Egg> eggs = new ArrayList<>();
+	/** Eggs seen this fight by NPC index, used once to work out the hatch order. */
+	private final Map<Integer, AraxxorEggCycle.Egg> eggs = new LinkedHashMap<>();
+
+	private final FightRecorder recorder = new FightRecorder("araxxor-helper", "araxxor");
+
+	/** Last tick anything from the fight was in the scene, for closing the recording. */
+	private int lastFightTick = -1;
+
+	private int lastHealthRatio = -1;
+
+	private WorldPoint lastPlayerPos;
 
 	@Getter
 	private List<AraxxorMinion> hatchOrder = new ArrayList<>();
@@ -139,6 +166,12 @@ public class AraxxorHelperPlugin extends Plugin
 	/** Standard-attack number a special was observed on, or -1 until one is seen. */
 	private int lastSpecialAttack = -1;
 
+	/** Tick of the last counted standard attack, or -1. */
+	private int lastStandardAttackTick = -1;
+
+	/** Whether the special has been announced this fight. */
+	private boolean specialAnnounced;
+
 	@Provides
 	AraxxorHelperConfig provideConfig(ConfigManager configManager)
 	{
@@ -157,6 +190,7 @@ public class AraxxorHelperPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		resetFight("plugin stopped");
+		recorder.close();
 	}
 
 	public boolean isFightActive()
@@ -172,6 +206,10 @@ public class AraxxorHelperPlugin extends Plugin
 		{
 			resetFight("game state " + event.getGameState());
 		}
+		if (event.getGameState() == GameState.LOGIN_SCREEN || event.getGameState() == GameState.HOPPING)
+		{
+			recorder.close();
+		}
 	}
 
 	@Subscribe
@@ -180,23 +218,26 @@ public class AraxxorHelperPlugin extends Plugin
 		NPC npc = event.getNpc();
 		int id = npc.getId();
 
+		if (isFightNpc(id))
+		{
+			startRecording();
+		}
+		rec("NPC_SPAWN " + describe(npc));
+
 		if (id == NpcID.ARAXXOR)
 		{
-			araxxor = npc;
 			resetFight("Araxxor spawned");
 			araxxor = npc;
 			log.debug("ARAX fight start");
+			// The eggs can be in the scene before he is, and the reset above
+			// forgets them, so pick up whatever is already there.
+			scanForEggs();
 			return;
 		}
 
 		if (AraxxorMinion.isEgg(id))
 		{
-			WorldPoint p = npc.getWorldLocation();
-			if (p != null)
-			{
-				eggs.add(new AraxxorEggCycle.Egg(p.getX(), p.getY(), AraxxorMinion.byEggId(id)));
-				readEggsIfComplete();
-			}
+			addEgg(npc);
 			return;
 		}
 
@@ -208,9 +249,23 @@ public class AraxxorHelperPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onNpcChanged(NpcChanged event)
+	{
+		NPC npc = event.getNpc();
+		rec("NPC_CHANGE old=" + event.getOld().getId() + " " + describe(npc));
+		// In case an egg turns into its araxyte rather than despawning.
+		AraxxorMinion minion = AraxxorMinion.byMinionId(npc.getId());
+		if (minion != null && AraxxorMinion.isEgg(event.getOld().getId()))
+		{
+			onMinionHatched(minion);
+		}
+	}
+
+	@Subscribe
 	public void onNpcDespawned(NpcDespawned event)
 	{
 		int id = event.getNpc().getId();
+		rec("NPC_DESPAWN " + describe(event.getNpc()));
 		if (id == NpcID.ARAXXOR || id == NpcID.ARAXXOR_DEAD)
 		{
 			resetFight("Araxxor despawned");
@@ -226,7 +281,15 @@ public class AraxxorHelperPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
-		if (araxxor == null || event.getActor() != araxxor)
+		Actor actor = event.getActor();
+		if (recorder.isOpen() && (actor == client.getLocalPlayer()
+			|| (actor instanceof NPC && isFightNpc(((NPC) actor).getId()))))
+		{
+			rec("ANIM who=" + who(actor) + " id=" + actor.getAnimation()
+				+ (actor == araxxor ? " name=" + animationName(actor.getAnimation()) : ""));
+		}
+
+		if (araxxor == null || actor != araxxor)
 		{
 			return;
 		}
@@ -271,6 +334,7 @@ public class AraxxorHelperPlugin extends Plugin
 		// animation matters: the shout is the same signal a player reacts to, and
 		// it arrives without waiting for the animation to be assigned.
 		String text = event.getOverheadText();
+		rec("OVERHEAD " + text);
 		if (text != null && text.toLowerCase().contains("skree"))
 		{
 			log.debug("ARAX cleave tell at tick {}", client.getTickCount());
@@ -284,12 +348,18 @@ public class AraxxorHelperPlugin extends Plugin
 	@Subscribe
 	public void onHitsplatApplied(HitsplatApplied event)
 	{
+		Hitsplat hitsplat = event.getHitsplat();
+		if (recorder.isOpen())
+		{
+			rec("HIT on=" + who(event.getActor()) + " amount=" + hitsplat.getAmount()
+				+ " type=" + hitsplat.getHitsplatType() + " mine=" + hitsplat.isMine());
+		}
+
 		if (araxxor == null || event.getActor() != araxxor)
 		{
 			return;
 		}
 
-		Hitsplat hitsplat = event.getHitsplat();
 		if (!hitsplat.isMine())
 		{
 			return;
@@ -328,16 +398,29 @@ public class AraxxorHelperPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onChatMessage(ChatMessage event)
+	{
+		if (event.getType() == ChatMessageType.GAMEMESSAGE)
+		{
+			rec("CHAT " + event.getMessage());
+		}
+	}
+
+	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		int tick = client.getTickCount();
+		recordTick(tick);
+
 		if (araxxor == null)
 		{
 			return;
 		}
 
-		clock.onGameTick(client.getTickCount());
+		clock.onGameTick(tick);
 		reconcileWithHealthBar();
 		maybeWarnEnrage();
+		maybeWarnHatch(tick);
 	}
 
 	/** Health the xp says he is on, which may be ahead of the visible hitsplats. */
@@ -372,6 +455,13 @@ public class AraxxorHelperPlugin extends Plugin
 
 	private void onStandardAttack(int tick)
 	{
+		if (lastStandardAttackTick >= 0 && tick - lastStandardAttackTick <= DUPLICATE_ATTACK_TICKS)
+		{
+			rec("STD_DUPLICATE ignored, last at t=" + lastStandardAttackTick);
+			return;
+		}
+		lastStandardAttackTick = tick;
+
 		AttackClock.Event result = clock.onAttackAnimation(tick);
 		if (result == AttackClock.Event.SUB_ATTACK)
 		{
@@ -382,24 +472,25 @@ public class AraxxorHelperPlugin extends Plugin
 		}
 
 		standardAttacks++;
+		rec("STD #" + standardAttacks + " clock=" + result + " nextHatchIn=" + getAttacksUntilHatch());
 
 		if (config.verboseLogging())
 		{
 			log.debug("ARAX standard attack #{} tick={} clockCount={} nextHatchIn={}",
 				standardAttacks, tick, clock.getAttackCount(), getAttacksUntilHatch());
 		}
-
-		maybeWarnHatch();
 	}
 
 	private void onSpecialObserved(AraxxorSpecial special)
 	{
 		lastSpecialAttack = standardAttacks;
 
+		rec("SPECIAL " + special + " at std=" + standardAttacks);
 		if (fightSpecial == AraxxorSpecial.UNKNOWN)
 		{
 			fightSpecial = special;
 			log.debug("ARAX special identified from animation: {}", special);
+			announceSpecial("his first special");
 		}
 		else if (fightSpecial != special)
 		{
@@ -419,6 +510,7 @@ public class AraxxorHelperPlugin extends Plugin
 		enraged = true;
 		clock.setAttackSpeed(ENRAGE_SPEED_TICKS, tick);
 		log.debug("ARAX enrage at tick {} hp~{}", tick, lastKnownHp);
+		rec("ENRAGE hp~" + lastKnownHp);
 		playCue("enrage.wav");
 	}
 
@@ -427,6 +519,16 @@ public class AraxxorHelperPlugin extends Plugin
 		activeMinion = minion;
 		log.debug("ARAX {} hatched at std={} (predicted {})",
 			minion, standardAttacks, getNextMinion());
+		rec("HATCHED " + minion + " std=" + standardAttacks + " ticksSinceStd="
+			+ (lastStandardAttackTick < 0 ? -1 : client.getTickCount() - lastStandardAttackTick));
+
+		// The first egg to hatch is the south-eastern one, whose type sets the
+		// special, so this covers a fight where the eggs couldn't be read.
+		if (fightSpecial == AraxxorSpecial.UNKNOWN)
+		{
+			fightSpecial = minion.getSpecial();
+			announceSpecial("the first egg");
+		}
 
 		if (config.minionAdvice())
 		{
@@ -445,22 +547,68 @@ public class AraxxorHelperPlugin extends Plugin
 			return;
 		}
 
-		hatchOrder = AraxxorEggCycle.hatchOrder(eggs);
+		hatchOrder = AraxxorEggCycle.hatchOrder(new ArrayList<>(eggs.values()));
 		AraxxorMinion first = hatchOrder.isEmpty() ? null : hatchOrder.get(0);
+		rec("EGGS_READ order=" + hatchOrder);
 		if (first != null)
 		{
 			fightSpecial = first.getSpecial();
 			log.debug("ARAX eggs read: order={} special={}", hatchOrder, fightSpecial);
-			if (config.announceSpecial())
-			{
-				playCue(fightSpecial.getSoundFile());
-			}
+			announceSpecial("the south-east egg");
 		}
 	}
 
-	private void maybeWarnHatch()
+	private void addEgg(NPC npc)
 	{
-		if (!config.warnEggHatch())
+		WorldPoint p = npc.getWorldLocation();
+		AraxxorMinion type = AraxxorMinion.byEggId(npc.getId());
+		if (p == null || type == null)
+		{
+			return;
+		}
+		eggs.put(npc.getIndex(), new AraxxorEggCycle.Egg(p.getX(), p.getY(), type));
+		readEggsIfComplete();
+	}
+
+	private void scanForEggs()
+	{
+		WorldView wv = client.getTopLevelWorldView();
+		if (wv == null)
+		{
+			return;
+		}
+		for (NPC npc : wv.npcs())
+		{
+			if (AraxxorMinion.isEgg(npc.getId()))
+			{
+				addEgg(npc);
+			}
+		}
+		rec("EGG_SCAN found=" + eggs.size());
+	}
+
+	/** Says which special this fight has, once, by voice and in the chatbox. */
+	private void announceSpecial(String source)
+	{
+		if (specialAnnounced || fightSpecial == AraxxorSpecial.UNKNOWN || !config.announceSpecial())
+		{
+			return;
+		}
+		specialAnnounced = true;
+		rec("ANNOUNCE_SPECIAL " + fightSpecial + " from " + source);
+		playCue(fightSpecial.getSoundFile());
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "",
+			"Araxxor's special this fight: " + fightSpecial.getDisplayName() + " - " + fightSpecial.getAdvice(), null);
+	}
+
+	/**
+	 * Cues the hatch a set number of ticks before the attack that hatches it,
+	 * timed from the attack before. Warning as soon as that earlier attack
+	 * landed came a whole attack (6 ticks) early.
+	 */
+	private void maybeWarnHatch(int tick)
+	{
+		if (!config.warnEggHatch() || lastStandardAttackTick < 0 || getAttacksUntilHatch() != 1)
 		{
 			return;
 		}
@@ -471,7 +619,8 @@ public class AraxxorHelperPlugin extends Plugin
 			return;
 		}
 
-		if (getAttacksUntilHatch() <= config.hatchLeadAttacks())
+		int speed = enraged ? ENRAGE_SPEED_TICKS : NORMAL_SPEED_TICKS;
+		if (tick >= lastStandardAttackTick + speed - config.hatchLeadTicks())
 		{
 			warnedHatchIndex = index;
 			playCue("egg-soon.wav");
@@ -488,6 +637,7 @@ public class AraxxorHelperPlugin extends Plugin
 		if (getPredictedHp() <= config.enrageWarnHp())
 		{
 			enrageWarned = true;
+			rec("ENRAGE_WARNING predictedHp=" + getPredictedHp() + " knownHp=" + lastKnownHp);
 			playCue("enrage-soon.wav");
 		}
 	}
@@ -549,6 +699,8 @@ public class AraxxorHelperPlugin extends Plugin
 		enrageWarned = false;
 		warnedHatchIndex = -1;
 		lastSpecialAttack = -1;
+		lastStandardAttackTick = -1;
+		specialAnnounced = false;
 		activeMinion = null;
 		lastKnownHp = MAX_HP;
 		hpExact = false;
@@ -560,6 +712,7 @@ public class AraxxorHelperPlugin extends Plugin
 		{
 			return;
 		}
+		rec("CUE " + clip);
 		try
 		{
 			audioPlayer.play(AraxxorHelperPlugin.class, clip, config.voiceGain());
@@ -568,6 +721,111 @@ public class AraxxorHelperPlugin extends Plugin
 		{
 			log.warn("Could not play Araxxor cue {}", clip, e);
 		}
+	}
+
+	// ---- recording ----
+
+	private static boolean isFightNpc(int id)
+	{
+		return id == NpcID.ARAXXOR || id == NpcID.ARAXXOR_DEAD
+			|| AraxxorMinion.isEgg(id) || AraxxorMinion.byMinionId(id) != null;
+	}
+
+	private void startRecording()
+	{
+		lastFightTick = client.getTickCount();
+		if (recorder.isOpen() || !config.recordFights())
+		{
+			return;
+		}
+		Player me = client.getLocalPlayer();
+		recorder.open("Araxxor recording - player=" + (me == null ? "?" : me.getName()));
+		WorldView wv = client.getTopLevelWorldView();
+		if (wv != null)
+		{
+			for (NPC npc : wv.npcs())
+			{
+				if (isFightNpc(npc.getId()))
+				{
+					rec("NPC_PRESENT " + describe(npc));
+				}
+			}
+		}
+	}
+
+	/** Per tick: health bar and position changes, flushing, and closing once the fight has left the scene. */
+	private void recordTick(int tick)
+	{
+		if (!recorder.isOpen())
+		{
+			return;
+		}
+
+		boolean fightInScene = araxxor != null;
+		WorldView wv = client.getTopLevelWorldView();
+		if (!fightInScene && wv != null)
+		{
+			for (NPC npc : wv.npcs())
+			{
+				if (isFightNpc(npc.getId()))
+				{
+					fightInScene = true;
+					break;
+				}
+			}
+		}
+		if (fightInScene)
+		{
+			lastFightTick = tick;
+		}
+		else if (tick - lastFightTick > RECORDING_IDLE_TICKS)
+		{
+			recorder.close();
+			return;
+		}
+
+		if (araxxor != null && araxxor.getHealthRatio() != lastHealthRatio)
+		{
+			lastHealthRatio = araxxor.getHealthRatio();
+			rec("BOSS_HP ratio=" + lastHealthRatio + "/" + araxxor.getHealthScale() + " known=" + lastKnownHp);
+		}
+		Player me = client.getLocalPlayer();
+		WorldPoint pos = me == null ? null : me.getWorldLocation();
+		if (pos != null && !pos.equals(lastPlayerPos))
+		{
+			lastPlayerPos = pos;
+			rec("PLAYER_POS at=" + pos.getX() + "," + pos.getY());
+		}
+		rec("TICK");
+		recorder.flush();
+	}
+
+	private void rec(String line)
+	{
+		if (recorder.isOpen())
+		{
+			recorder.write(client.getTickCount(), line);
+		}
+	}
+
+	private String who(Actor actor)
+	{
+		if (actor == client.getLocalPlayer())
+		{
+			return "me";
+		}
+		if (actor instanceof NPC)
+		{
+			return ((NPC) actor).getName() + "#" + ((NPC) actor).getIndex();
+		}
+		return actor == null ? "-" : String.valueOf(actor.getName());
+	}
+
+	private static String describe(NPC npc)
+	{
+		WorldPoint p = npc.getWorldLocation();
+		return "id=" + npc.getId() + " name=" + npc.getName() + " idx=" + npc.getIndex()
+			+ (p == null ? "" : " at=" + p.getX() + "," + p.getY());
 	}
 
 	static boolean isCombatSkill(Skill skill)

@@ -9,7 +9,7 @@ import net.runelite.api.gameval.AnimationID;
  * event handlers and read by the overlays. Plain Java with no client access,
  * so every timing rule lives here in one place.
  *
- * Timings below come from recorded fights (see {@link DoomRecorder}); the
+ * Timings below come from recorded fights (see {@link com.combat.FightRecorder}); the
  * comments say which recording behaviour each one is based on.
  */
 class DoomTracker
