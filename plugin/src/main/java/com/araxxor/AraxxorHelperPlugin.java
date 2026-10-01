@@ -272,6 +272,11 @@ public class AraxxorHelperPlugin extends Plugin
 	{
 		NPC npc = event.getNpc();
 		rec("NPC_CHANGE old=" + event.getOld().getId() + " " + describe(npc));
+		if (npc.getId() == NpcID.ARAXXOR_DEAD && npc == araxxor)
+		{
+			resetFight("Araxxor's corpse");
+			return;
+		}
 		// In case an egg turns into its araxyte rather than despawning.
 		AraxxorMinion minion = AraxxorMinion.byMinionId(npc.getId());
 		if (minion != null && AraxxorMinion.isEgg(event.getOld().getId()))
@@ -315,6 +320,14 @@ public class AraxxorHelperPlugin extends Plugin
 
 		int animation = araxxor.getAnimation();
 		int tick = client.getTickCount();
+
+		// He lingers as a corpse for ~20 ticks before despawning, and the hatch
+		// clock kept running through it, so the fight ends on the death itself.
+		if (animation == AnimationID.NPC_ARAXXOR_01_DEATH_01)
+		{
+			resetFight("Araxxor died");
+			return;
+		}
 
 		if (config.verboseLogging())
 		{
