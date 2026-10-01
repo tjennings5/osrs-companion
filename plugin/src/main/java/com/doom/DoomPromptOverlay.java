@@ -170,9 +170,14 @@ class DoomPromptOverlay extends Overlay
 		if (config.shockwavePrompt() && tracker.isShockwavePending(tick) && !tracker.isEarthenShieldMade())
 		{
 			int left = tracker.ticksToBreakOrb(tick, plugin.getOrbHitDelay(), config.orbTimingOffset());
-			if (left >= 0)
+			// Stays up past 0: a late shield still blocks the waves after the first.
+			if (left > 0)
 			{
 				prompts.add(new Prompt("BREAK 2ND ORB  " + left, WARN));
+			}
+			else
+			{
+				prompts.add(new Prompt("BREAK 2ND ORB NOW", left == 0 ? WARN : BEAM));
 			}
 		}
 

@@ -78,7 +78,8 @@ public interface DoomHelperConfig extends Config
 		keyName = "shockwavePrompt",
 		name = "Orb countdown",
 		description = "When the volatile earth appear, count down to the last tick you can click the second one and "
-			+ "still have the earthen shield up for the first stomp. Allows for your distance to the nearest orb.",
+			+ "still have the earthen shield up for the first stomp, then \"NOW\" until it's up - a late shield still "
+			+ "blocks the later waves. Allows for your distance to the nearest orb.",
 		position = 5,
 		section = PROMPTS
 	)
