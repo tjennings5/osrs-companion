@@ -87,6 +87,17 @@ public class AraxxorHelperPlugin extends Plugin
 	 */
 	private static final int DUPLICATE_ATTACK_TICKS = 2;
 
+	/**
+	 * Eggs hatch on a clock. In recorded kills the first hatched 3 ticks after
+	 * his 3rd standard attack, and each next one 42 ticks after the last
+	 * (6 attacks and a special at 6 ticks each). Enrage doesn't reset it: the
+	 * hatch due next still came 42 ticks on (6 of 7; the other 41), and the
+	 * one after that 38 ticks later (4 of 4).
+	 */
+	private static final int FIRST_HATCH_AFTER_ATTACK_TICKS = 3;
+	private static final int HATCH_INTERVAL_TICKS = 42;
+	private static final int ENRAGED_HATCH_INTERVAL_TICKS = 38;
+
 	/** Stop recording after this long with nothing from the fight in the scene. */
 	private static final int RECORDING_IDLE_TICKS = 100;
 
@@ -160,6 +171,14 @@ public class AraxxorHelperPlugin extends Plugin
 
 	/** Which hatch we have already spoken for, so a cue fires once per egg. */
 	private int warnedHatchIndex = -1;
+
+	/** Eggs hatched this fight. */
+	private int hatchCount;
+
+	private int lastHatchTick = -1;
+
+	/** Whether the last hatch came after he enraged, which shortens the wait for the next. */
+	private boolean lastHatchEnraged;
 
 	private boolean enrageWarned;
 
@@ -310,6 +329,10 @@ public class AraxxorHelperPlugin extends Plugin
 		}
 
 		AraxxorSpecial special = specialFor(animation);
+		if (special == null && isAcidBall(animation))
+		{
+			special = AraxxorSpecial.ACID_BALL;
+		}
 		if (special != null)
 		{
 			onSpecialObserved(special);
@@ -429,16 +452,37 @@ public class AraxxorHelperPlugin extends Plugin
 		return Math.max(0, lastKnownHp - xpDamage.getInFlightDamage());
 	}
 
-	/** Standard attacks until the next egg hatches. */
+	/** Standard attacks until the first egg hatches; only meaningful before it has. */
 	public int getAttacksUntilHatch()
 	{
 		return AraxxorEggCycle.attacksUntilNextHatch(standardAttacks);
 	}
 
+	/** Tick the next egg should hatch, or -1 before that can be known (his 3rd attack is due). */
+	private int predictedHatchTick()
+	{
+		if (lastHatchTick >= 0)
+		{
+			return lastHatchTick + (lastHatchEnraged ? ENRAGED_HATCH_INTERVAL_TICKS : HATCH_INTERVAL_TICKS);
+		}
+		if (standardAttacks == AraxxorEggCycle.FIRST_HATCH_ATTACK - 1 && lastStandardAttackTick >= 0)
+		{
+			return lastStandardAttackTick + NORMAL_SPEED_TICKS + FIRST_HATCH_AFTER_ATTACK_TICKS;
+		}
+		return -1;
+	}
+
+	/** Ticks until the next egg hatches, or -1 if not yet known. */
+	public int getTicksUntilHatch()
+	{
+		int at = predictedHatchTick();
+		return at < 0 ? -1 : Math.max(0, at - client.getTickCount());
+	}
+
 	/** The araxyte due out of the next egg, or null if the eggs were never read. */
 	public AraxxorMinion getNextMinion()
 	{
-		return AraxxorEggCycle.typeAt(hatchOrder, AraxxorEggCycle.hatchesSoFar(standardAttacks));
+		return AraxxorEggCycle.typeAt(hatchOrder, hatchCount);
 	}
 
 	/** Standard attacks until the next special, or -1 until one has been observed. */
@@ -451,6 +495,20 @@ public class AraxxorHelperPlugin extends Plugin
 		int since = standardAttacks - lastSpecialAttack;
 		int remaining = SPECIAL_PERIOD - (since % SPECIAL_PERIOD);
 		return remaining == 0 ? SPECIAL_PERIOD : remaining;
+	}
+
+	/**
+	 * The acid ball plays his ranged attack animation, not the acid cannon one.
+	 * Specials come every 6 standard attacks, so a ranged animation on that
+	 * slot is the ball - in recordings every one of them was, and counting it
+	 * as an attack put each later hatch cue an attack early.
+	 */
+	private boolean isAcidBall(int animation)
+	{
+		return animation == AnimationID.NPC_ARAXXOR_01_ATTACK_RANGED_01
+			&& standardAttacks > 0 && standardAttacks % SPECIAL_PERIOD == 0
+			&& lastSpecialAttack != standardAttacks
+			&& (fightSpecial == AraxxorSpecial.ACID_BALL || fightSpecial == AraxxorSpecial.UNKNOWN);
 	}
 
 	private void onStandardAttack(int tick)
@@ -472,12 +530,12 @@ public class AraxxorHelperPlugin extends Plugin
 		}
 
 		standardAttacks++;
-		rec("STD #" + standardAttacks + " clock=" + result + " nextHatchIn=" + getAttacksUntilHatch());
+		rec("STD #" + standardAttacks + " clock=" + result + " nextHatchTick=" + predictedHatchTick());
 
 		if (config.verboseLogging())
 		{
 			log.debug("ARAX standard attack #{} tick={} clockCount={} nextHatchIn={}",
-				standardAttacks, tick, clock.getAttackCount(), getAttacksUntilHatch());
+				standardAttacks, tick, clock.getAttackCount(), getTicksUntilHatch());
 		}
 	}
 
@@ -517,10 +575,15 @@ public class AraxxorHelperPlugin extends Plugin
 	private void onMinionHatched(AraxxorMinion minion)
 	{
 		activeMinion = minion;
+		int tick = client.getTickCount();
 		log.debug("ARAX {} hatched at std={} (predicted {})",
 			minion, standardAttacks, getNextMinion());
-		rec("HATCHED " + minion + " std=" + standardAttacks + " ticksSinceStd="
-			+ (lastStandardAttackTick < 0 ? -1 : client.getTickCount() - lastStandardAttackTick));
+		rec("HATCHED " + minion + " predicted=" + getNextMinion() + " std=" + standardAttacks + " ticksSinceStd="
+			+ (lastStandardAttackTick < 0 ? -1 : tick - lastStandardAttackTick)
+			+ " predictedTick=" + predictedHatchTick());
+		hatchCount++;
+		lastHatchTick = tick;
+		lastHatchEnraged = enraged;
 
 		// The first egg to hatch is the south-eastern one, whose type sets the
 		// special, so this covers a fight where the eggs couldn't be read.
@@ -601,28 +664,18 @@ public class AraxxorHelperPlugin extends Plugin
 			"Araxxor's special this fight: " + fightSpecial.getDisplayName() + " - " + fightSpecial.getAdvice(), null);
 	}
 
-	/**
-	 * Cues the hatch a set number of ticks before the attack that hatches it,
-	 * timed from the attack before. Warning as soon as that earlier attack
-	 * landed came a whole attack (6 ticks) early.
-	 */
+	/** Cues the next hatch a set number of ticks before it's due. */
 	private void maybeWarnHatch(int tick)
 	{
-		if (!config.warnEggHatch() || lastStandardAttackTick < 0 || getAttacksUntilHatch() != 1)
+		int at = predictedHatchTick();
+		if (!config.warnEggHatch() || at < 0 || warnedHatchIndex == hatchCount)
 		{
 			return;
 		}
 
-		int index = AraxxorEggCycle.hatchesSoFar(standardAttacks);
-		if (index == warnedHatchIndex)
+		if (tick >= at - config.hatchLeadTicks())
 		{
-			return;
-		}
-
-		int speed = enraged ? ENRAGE_SPEED_TICKS : NORMAL_SPEED_TICKS;
-		if (tick >= lastStandardAttackTick + speed - config.hatchLeadTicks())
-		{
-			warnedHatchIndex = index;
+			warnedHatchIndex = hatchCount;
 			playCue("egg-soon.wav");
 		}
 	}
@@ -634,7 +687,9 @@ public class AraxxorHelperPlugin extends Plugin
 			return;
 		}
 
-		if (getPredictedHp() <= config.enrageWarnHp())
+		// Tracked HP, not the xp-based prediction: that ran hundreds ahead in
+		// recordings (warned at a predicted 310 with him really on 784).
+		if (lastKnownHp <= config.enrageWarnHp())
 		{
 			enrageWarned = true;
 			rec("ENRAGE_WARNING predictedHp=" + getPredictedHp() + " knownHp=" + lastKnownHp);
@@ -698,6 +753,9 @@ public class AraxxorHelperPlugin extends Plugin
 		enraged = false;
 		enrageWarned = false;
 		warnedHatchIndex = -1;
+		hatchCount = 0;
+		lastHatchTick = -1;
+		lastHatchEnraged = false;
 		lastSpecialAttack = -1;
 		lastStandardAttackTick = -1;
 		specialAnnounced = false;

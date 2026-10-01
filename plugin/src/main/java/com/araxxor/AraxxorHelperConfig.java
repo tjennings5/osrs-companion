@@ -61,7 +61,7 @@ public interface AraxxorHelperConfig extends Config
 	@ConfigItem(
 		keyName = "hatchLeadTicks",
 		name = "Hatch warning lead (ticks)",
-		description = "How many ticks before the attack that hatches the egg to warn. 0 is on that attack.",
+		description = "How many ticks before the egg hatches to warn. 0 is as it hatches.",
 		position = 5
 	)
 	default int hatchLeadTicks()
