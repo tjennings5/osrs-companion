@@ -1,4 +1,4 @@
-package com.doom;
+package com.combat;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -12,19 +12,23 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.RuneLite;
 
 /**
- * Plain-text event log for one Doom session, one line per event:
+ * Plain-text event log for one boss session, one line per event:
  *
  * <pre>t=1234 ANIM npc=BOSS id=12407 name=ROCK_THROW at=1311,9540,0</pre>
+ *
+ * Written to {@code .runelite/<folder>/recordings/<prefix>-<timestamp>.log}.
  *
  * Lines are prefixed with the game tick so timings can be read straight off
  * the file. Flushed once per tick so a crash or force-close loses at most the
  * current tick.
  */
 @Slf4j
-class DoomRecorder
+public class FightRecorder
 {
-	private static final Path DIR = RuneLite.RUNELITE_DIR.toPath().resolve("doom-helper").resolve("recordings");
 	private static final DateTimeFormatter FILE_STAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
+	private final Path dir;
+	private final String prefix;
 
 	private BufferedWriter writer;
 	private boolean dirty;
@@ -35,12 +39,19 @@ class DoomRecorder
 	@Getter
 	private int lineCount;
 
-	boolean isOpen()
+	/** E.g. {@code new FightRecorder("doom-helper", "doom")}. */
+	public FightRecorder(String folder, String prefix)
+	{
+		this.dir = RuneLite.RUNELITE_DIR.toPath().resolve(folder).resolve("recordings");
+		this.prefix = prefix;
+	}
+
+	public boolean isOpen()
 	{
 		return writer != null;
 	}
 
-	void open(String header)
+	public void open(String header)
 	{
 		if (writer != null)
 		{
@@ -48,21 +59,21 @@ class DoomRecorder
 		}
 		try
 		{
-			Files.createDirectories(DIR);
-			file = DIR.resolve("doom-" + LocalDateTime.now().format(FILE_STAMP) + ".log");
+			Files.createDirectories(dir);
+			file = dir.resolve(prefix + "-" + LocalDateTime.now().format(FILE_STAMP) + ".log");
 			writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
 			lineCount = 0;
 			writeRaw("# " + header);
-			log.debug("Doom recording started: {}", file);
+			log.debug("Recording started: {}", file);
 		}
 		catch (IOException e)
 		{
-			log.warn("Could not start Doom recording", e);
+			log.warn("Could not start {} recording", prefix, e);
 			writer = null;
 		}
 	}
 
-	void write(int tick, String line)
+	public void write(int tick, String line)
 	{
 		if (writer != null)
 		{
@@ -81,12 +92,12 @@ class DoomRecorder
 		}
 		catch (IOException e)
 		{
-			log.warn("Doom recording write failed - stopping", e);
+			log.warn("{} recording write failed - stopping", prefix, e);
 			close();
 		}
 	}
 
-	void flush()
+	public void flush()
 	{
 		if (writer == null || !dirty)
 		{
@@ -99,12 +110,12 @@ class DoomRecorder
 		}
 		catch (IOException e)
 		{
-			log.warn("Doom recording flush failed - stopping", e);
+			log.warn("{} recording flush failed - stopping", prefix, e);
 			close();
 		}
 	}
 
-	void close()
+	public void close()
 	{
 		if (writer == null)
 		{
@@ -113,11 +124,11 @@ class DoomRecorder
 		try
 		{
 			writer.close();
-			log.debug("Doom recording saved: {} ({} lines)", file, lineCount);
+			log.debug("Recording saved: {} ({} lines)", file, lineCount);
 		}
 		catch (IOException e)
 		{
-			log.warn("Could not close Doom recording", e);
+			log.warn("Could not close {} recording", prefix, e);
 		}
 		writer = null;
 	}

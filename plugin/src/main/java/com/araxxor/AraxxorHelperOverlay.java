@@ -68,11 +68,9 @@ class AraxxorHelperOverlay extends OverlayPanel
 			.rightColor(plugin.isEnraged() ? ENRAGE : MUTED)
 			.build());
 
-		int hp = plugin.getLastKnownHp();
-		int predicted = plugin.getPredictedHp();
 		panelComponent.getChildren().add(LineComponent.builder()
 			.left("HP (approx)")
-			.right(predicted < hp ? hp + " (" + predicted + ")" : Integer.toString(hp))
+			.right(Integer.toString(plugin.getLastKnownHp()))
 			.build());
 
 		addMinionLines();
@@ -84,23 +82,15 @@ class AraxxorHelperOverlay extends OverlayPanel
 	private void addHatchLine()
 	{
 		AraxxorMinion next = plugin.getNextMinion();
-		int in = plugin.getAttacksUntilHatch();
-
-		if (next == null)
-		{
-			// Eggs not read yet — say so rather than showing a confident blank.
-			panelComponent.getChildren().add(LineComponent.builder()
-				.left("Next hatch")
-				.right("in " + in)
-				.rightColor(MUTED)
-				.build());
-			return;
-		}
+		int ticks = plugin.getTicksUntilHatch();
+		// Before the first hatch's timing is known, count his attacks down to it instead.
+		String in = ticks >= 0 ? ticks + "t" : plugin.getAttacksUntilHatch() + " atk";
+		String name = next == null ? "" : next.getDisplayName() + " ";
 
 		panelComponent.getChildren().add(LineComponent.builder()
 			.left("Next hatch")
-			.right(next.getDisplayName() + " in " + in)
-			.rightColor(in <= 1 ? WARN : MINION)
+			.right(name + "in " + in)
+			.rightColor(next == null ? MUTED : ticks >= 0 && ticks <= 3 ? WARN : MINION)
 			.build());
 	}
 

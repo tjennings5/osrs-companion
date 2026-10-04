@@ -9,7 +9,7 @@ import net.runelite.api.gameval.AnimationID;
  * event handlers and read by the overlays. Plain Java with no client access,
  * so every timing rule lives here in one place.
  *
- * Timings below come from recorded fights (see {@link DoomRecorder}); the
+ * Timings below come from recorded fights (see {@link com.combat.FightRecorder}); the
  * comments say which recording behaviour each one is based on.
  */
 class DoomTracker
@@ -60,12 +60,11 @@ class DoomTracker
 	private static final int SHIELD_BONUS_MIN_DELVE = 5;
 
 	/**
-	 * Car phase, from the delve 5 and 6 recordings: the boss starts moving 3
-	 * ticks after its eye appears and arrives at +6. At delve 6+ it slams on
+	 * Car phase: the boss starts moving 3 ticks after its eye appears and
+	 * arrives at +6 (delves 5-6) or +5 (delve 7). At delve 6+ it slams on
 	 * arrival - or at +3 if the eye is under it already and it doesn't move -
 	 * and the slam's damage lands 6 ticks after the slam animation.
 	 */
-	private static final int EYE_TO_ARRIVAL_TICKS = 6;
 	private static final int EYE_TO_SLAM_STATIONARY_TICKS = 3;
 	private static final int SLAM_ANIM_TO_DAMAGE_TICKS = 6;
 
@@ -80,6 +79,14 @@ class DoomTracker
 	private static final int SHIELD_BONUS_CAP = 50;
 	private static final int SHIELD_BONUS_BASE = 1;
 	private static final int SHIELD_TICKS_PER_BONUS = 2;
+
+	/**
+	 * In the shield phase the boss keeps charging its beam, and a hit on it
+	 * cancels the charge. Uncancelled, the beam fires 15 ticks after the
+	 * charge loop starts (all 3 recorded, at delves 4, 5 and 7, one of them
+	 * for 99); the latest of ~1,500 recorded cancels landed at +14.
+	 */
+	private static final int SHIELD_BEAM_LAST_HIT_TICKS = 14;
 
 	/** Car slams start at delve 6; delve 5's car phase only zooms. */
 	private static final int FIRST_SLAM_DELVE = 6;
@@ -105,6 +112,9 @@ class DoomTracker
 	private boolean meleeCharging;
 
 	private int lastRockThrowTick = -1;
+
+	/** Tick the boss' current beam charge loop started, or -1 if it isn't charging. */
+	private int beamChargeTick = -1;
 
 	private AttackStyle rockStyle;
 	private int rockLaunchTick = -1;
@@ -146,6 +156,7 @@ class DoomTracker
 		phase = Phase.NORMAL;
 		meleeCharging = false;
 		lastRockThrowTick = -1;
+		beamChargeTick = -1;
 		rockStyle = null;
 		rockLaunchTick = -1;
 		lastPunishTick = -1;
@@ -179,10 +190,12 @@ class DoomTracker
 		else if (npcId == DoomIds.BOSS_BURROWED)
 		{
 			phase = Phase.BURROWED;
+			beamChargeTick = -1;
 		}
 		else
 		{
 			phase = Phase.NORMAL;
+			beamChargeTick = -1;
 		}
 		meleeCharging = false;
 	}
@@ -226,6 +239,9 @@ class DoomTracker
 				break;
 			case AnimationID.DOM_BEAM_CHARGE_LOOP:
 				// Follows BEAM_CHARGE a tick later; keeps whatever it decided.
+				// The shield phase's first loop can come on the tick the boss
+				// turns shielded, so it's timed whatever the phase.
+				beamChargeTick = tick;
 				break;
 			case AnimationID.DOM_BEAM_CANCEL:
 				if (meleeCharging)
@@ -233,6 +249,7 @@ class DoomTracker
 					lastPunishTick = tick;
 				}
 				meleeCharging = false;
+				beamChargeTick = -1;
 				break;
 			case AnimationID.DOM_BURROWED_EXPLOSION:
 				slamDamageTick = tick + SLAM_ANIM_TO_DAMAGE_TICKS;
@@ -242,8 +259,23 @@ class DoomTracker
 				break;
 			default:
 				meleeCharging = false;
+				beamChargeTick = -1;
 				break;
 		}
+	}
+
+	/**
+	 * Shield phase: ticks left for a hit to land on the boss and cancel its
+	 * beam, or -1 when it isn't charging. 0 is the last tick a hit can land.
+	 */
+	int ticksToCancelShieldBeam(int tick)
+	{
+		if (phase != Phase.SHIELDED || beamChargeTick < 0)
+		{
+			return -1;
+		}
+		int left = beamChargeTick + SHIELD_BEAM_LAST_HIT_TICKS - tick;
+		return left >= 0 ? left : -1;
 	}
 
 	void onRockLaunch(AttackStyle style, int tick)
@@ -269,14 +301,19 @@ class DoomTracker
 		eyeLocation = eye;
 		chargeStart = from;
 		boolean stationary = eye != null && from != null && eye.getX() == from.getX() && eye.getY() == from.getY();
-		slamDamageTick = tick + (stationary ? EYE_TO_SLAM_STATIONARY_TICKS : EYE_TO_ARRIVAL_TICKS)
+		slamDamageTick = tick + (stationary ? EYE_TO_SLAM_STATIONARY_TICKS : eyeToArrivalTicks())
 			+ SLAM_ANIM_TO_DAMAGE_TICKS;
+	}
+
+	private int eyeToArrivalTicks()
+	{
+		return delve <= 6 ? 6 : 5;
 	}
 
 	/** True while the burrowed boss is about to charge or charging along its path. */
 	boolean isChargePathActive(int tick)
 	{
-		return eyeTick >= 0 && tick <= eyeTick + EYE_TO_ARRIVAL_TICKS;
+		return eyeTick >= 0 && tick <= eyeTick + eyeToArrivalTicks();
 	}
 
 	/** Ticks until the current car slam's damage, or -1 if none is coming. */
@@ -355,9 +392,8 @@ class DoomTracker
 	/**
 	 * Ticks until the boss attacks again after a melee punish, or -1 outside
 	 * that window. Measured from the punish (BEAM_CANCEL) to the next attack
-	 * animation across all recordings: 6 at delves 1-6 (7 was also seen at
-	 * delves 1-2; the earlier value is the one to plan around). Delve 7+ is
-	 * unrecorded and takes the wiki's one-tick-shorter delay.
+	 * animation across all recordings: 7 at delves 1-2 (24 of 24 on
+	 * 2026-09-28), 6 at delves 3-6 and 5 at delve 7.
 	 */
 	int ticksUntilAttackAfterPunish(int tick)
 	{
@@ -365,7 +401,7 @@ class DoomTracker
 		{
 			return -1;
 		}
-		int delay = delve <= 6 ? 6 : 5;
+		int delay = delve <= 2 ? 7 : delve <= 6 ? 6 : 5;
 		int left = lastPunishTick + delay - tick;
 		return left >= 0 ? left : -1;
 	}
@@ -414,7 +450,7 @@ class DoomTracker
 		return lastClick - tick;
 	}
 
-	/** Number of shockwaves at the current delve, from the wiki's table. */
+	/** Number of shockwaves at the current delve, from the wiki's table; recorded through delve 7. */
 	int shockwaveCount()
 	{
 		if (delve <= 2)
