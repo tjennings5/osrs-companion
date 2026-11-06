@@ -8,6 +8,7 @@ import com.farmrun.FarmRunPlugin;
 import com.kalphite.KalphiteFlinchPlugin;
 import com.sailing.SailingSteeringPlugin;
 import com.spawntimer.SpawnTimerPlugin;
+import com.wardens.WardensHelperPlugin;
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
@@ -24,7 +25,8 @@ public class OsrsMcpBridgePluginTest
 			FarmRunPlugin.class,
 			SailingSteeringPlugin.class,
 			SpawnTimerPlugin.class,
-			DoomHelperPlugin.class);
+			DoomHelperPlugin.class,
+			WardensHelperPlugin.class);
 		RuneLite.main(args);
 	}
 }
