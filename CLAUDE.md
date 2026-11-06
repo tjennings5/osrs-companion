@@ -47,6 +47,7 @@ osrs-companion/
       com/kalphite/       # KalphiteFlinchPlugin
       com/spawntimer/     # SpawnTimerPlugin — ctrl+right-click NPC spawn point timers
       com/doom/           # DoomHelperPlugin — Doom of Mokhaiotl prompts/timers + fight recorder (.runelite/doom-helper/recordings)
+      com/wardens/        # WardensHelperPlugin — ToA Wardens: highlights tiles falling boulders and enrage lightning will hit
       com/combat/         # Shared combat utilities (AttackClock, HealthBar, XpDamage)
     src/test/java/com/bridge/
       OsrsMcpBridgePluginTest.java  # Dev entrypoint: loads all plugins via ExternalPluginManager
@@ -169,6 +170,7 @@ Plugin enabled states are forced to `true` in the RuneLite config before each la
 - `runelite.farmrunplugin`
 - `runelite.spawntimerplugin`
 - `runelite.doomhelperplugin`
+- `runelite.wardenshelperplugin`
 
 ---
 

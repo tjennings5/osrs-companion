@@ -62,7 +62,8 @@ jobs:
           PLUGINS INCLUDED:
             Farm Run Guide, Drop Highlighter, Cerberus Helper,
             Araxxor Helper, Kalphite Flinch Timer, OSRS MCP Bridge,
-            Sailing Steering Arrow, Spawn Timer, Doom Helper
+            Sailing Steering Arrow, Spawn Timer, Doom Helper,
+            Wardens Helper
 
           AUTO-UPDATES:
           The launcher checks for plugin updates every time you start it.
