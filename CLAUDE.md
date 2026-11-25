@@ -174,6 +174,7 @@ Plugin enabled states are forced to `true` in the RuneLite config before each la
 - `runelite.spawntimerplugin`
 - `runelite.doomhelperplugin`
 - `runelite.wardenshelperplugin`
+- `runelite.cursorlockplugin`
 
 ---
 
