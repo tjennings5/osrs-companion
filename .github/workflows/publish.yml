@@ -5,12 +5,47 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # The release JAR bundles whatever RuneLite client was current when it was
+  # built. After a game update the old client is rejected at login with
+  # error_game_js5connect_outofdate, so check RuneLite every 6 hours and rebuild when a
+  # new client version is out.
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      runelite: ${{ steps.rl.outputs.version }}
+      skip: ${{ steps.rl.outputs.skip }}
+    steps:
+      - name: Compare RuneLite release against latest published build
+        id: rl
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RL=$(curl -fsSL https://repo.runelite.net/net/runelite/client/maven-metadata.xml \
+            | sed -n 's:.*<release>\(.*\)</release>.*:\1:p')
+          echo "RuneLite release: $RL"
+          echo "version=$RL" >> "$GITHUB_OUTPUT"
+          skip=false
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            body=$(gh release view --repo "${{ github.repository }}" --json body -q .body || true)
+            if grep -qF "RuneLite client: $RL" <<<"$body"; then
+              echo "Latest release already built against $RL - nothing to do."
+              skip=true
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
   publish:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -63,7 +98,7 @@ jobs:
             Farm Run Guide, Drop Highlighter, Cerberus Helper,
             Araxxor Helper, Kalphite Flinch Timer, OSRS MCP Bridge,
             Sailing Steering Arrow, Spawn Timer, Doom Helper,
-            Wardens Helper
+            Wardens Helper, Cursor Lock
 
           AUTO-UPDATES:
           The launcher checks for plugin updates every time you start it.
@@ -92,7 +127,7 @@ jobs:
           retention-days: 7
 
       - name: Create GitHub release
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -103,5 +138,7 @@ jobs:
             --title "OSRS Companion $VERSION" \
             --notes "Download **osrs-companion-setup.zip**, extract it anywhere, and double-click **launch.bat**.
 
-          Already set up? Your launcher will auto-download this update on next launch. Nothing to do." \
+          Already set up? Your launcher will auto-download this update on next launch. Nothing to do.
+
+          RuneLite client: ${{ needs.check.outputs.runelite }}" \
             --latest
