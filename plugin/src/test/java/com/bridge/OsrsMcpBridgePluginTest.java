@@ -3,6 +3,7 @@ package com.bridge;
 import com.dropHighlighter.DropHighlighterPlugin;
 import com.araxxor.AraxxorHelperPlugin;
 import com.cerberus.CerberusHelperPlugin;
+import com.cursorlock.CursorLockPlugin;
 import com.doom.DoomHelperPlugin;
 import com.farmrun.FarmRunPlugin;
 import com.kalphite.KalphiteFlinchPlugin;
@@ -26,7 +27,8 @@ public class OsrsMcpBridgePluginTest
 			SailingSteeringPlugin.class,
 			SpawnTimerPlugin.class,
 			DoomHelperPlugin.class,
-			WardensHelperPlugin.class);
+			WardensHelperPlugin.class,
+			CursorLockPlugin.class);
 		RuneLite.main(args);
 	}
 }

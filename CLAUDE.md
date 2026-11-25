@@ -48,6 +48,7 @@ osrs-companion/
       com/spawntimer/     # SpawnTimerPlugin — ctrl+right-click NPC spawn point timers
       com/doom/           # DoomHelperPlugin — Doom of Mokhaiotl prompts/timers + fight recorder (.runelite/doom-helper/recordings)
       com/wardens/        # WardensHelperPlugin — ToA Wardens: highlights tiles falling boulders and enrage lightning will hit
+      com/cursorlock/     # CursorLockPlugin — hotkey (Ctrl+L) confines the mouse to the RuneLite window via Win32 ClipCursor
       com/combat/         # Shared combat utilities (AttackClock, HealthBar, XpDamage)
     src/test/java/com/bridge/
       OsrsMcpBridgePluginTest.java  # Dev entrypoint: loads all plugins via ExternalPluginManager
@@ -103,6 +104,8 @@ All work (plugin changes, launcher changes, CLAUDE.md updates) goes on a feature
 2. Assembles `dist\` (jar, `version.txt`, `launch.ps1` stamped from `companion-launch.ps1`, the `.bat`, `README.txt`)
 3. Zips it to `osrs-companion-setup.zip`
 4. Publishes a GitHub release (tag `vYYYYMMDD-HHMM`) via `gh release create`, marked `--latest`
+
+**Every 6 hours** (and on manual `workflow_dispatch`) the same workflow checks the latest RuneLite client release on repo.runelite.net. If the latest GitHub release's notes don't already say `RuneLite client: <that version>`, it rebuilds and publishes. This matters because the JAR bundles the RuneLite client current at build time; after a game update an old build fails login with `error_game_js5connect_outofdate`, and a rebuild is the fix.
 
 No RuneLite settings are bundled into releases (removed — see below); the workflow needs nothing from a real dev machine to run.
 

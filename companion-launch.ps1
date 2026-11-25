@@ -329,7 +329,7 @@ if (Test-Path $configPath) {
         foreach ($key in @('osrsmcpbridgeplugin', 'cerberushelperplugin', 'araxxorhelperplugin',
                            'drophighlighterplugin', 'kalphiteflinchplugin', 'farmrunplugin',
                            'sailingsteeringplugin', 'spawntimerplugin', 'doomhelperplugin',
-                           'wardenshelperplugin')) {
+                           'wardenshelperplugin', 'cursorlockplugin')) {
             if ($content -match "runelite\.$key=") {
                 $content = $content -replace "runelite\.$key=\w+", "runelite.$key=true"
             } else {
